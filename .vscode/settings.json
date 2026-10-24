@@ -1,0 +1,15 @@
+{
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "golang.go"
+  },
+  "go.formatTool": "gofmt",
+  "emeraldwalk.runonsave": {
+    "commands": [
+      {
+        "match": "\\.go$",
+        "cmd": "go tool golines --base-formatter=gofmt -w ${file}"
+      }
+    ]
+  }
+}
