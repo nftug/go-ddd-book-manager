@@ -1,0 +1,12 @@
+bin/
+node_modules
+frontend/dist
+
+.VSCodeCounter/*
+cover.html
+cover.out
+
+package.json.md5
+.task/
+frontend/bindings/*
+.DS_Store
