@@ -6,7 +6,7 @@ import (
 )
 
 type UUIDGenerator interface {
-	New() uuid.UUID
+	NewUUIDv7() uuid.UUID
 }
 
 type Clock interface {

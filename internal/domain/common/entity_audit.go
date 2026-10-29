@@ -32,7 +32,7 @@ func NewEntityAudit(ctx DomainContext, permission PermissionPolicy) (EntityAudit
 		return EntityAudit{}, err
 	}
 	return EntityAudit{
-		id:      ctx.IDGenerator().New(),
+		id:      ctx.NewUUIDv7(),
 		created: NewAuditRecord(ctx),
 		updated: option.None[AuditRecord](),
 	}, nil

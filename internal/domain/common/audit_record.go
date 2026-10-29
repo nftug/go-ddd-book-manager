@@ -39,6 +39,6 @@ func NewAuditRecord(ctx DomainContext) AuditRecord {
 	return AuditRecord{
 		userId:    ctx.Actor().ID(),
 		userName:  ctx.Actor().UserName(),
-		timestamp: ctx.Clock().Now(),
+		timestamp: ctx.UTCNow(),
 	}
 }
