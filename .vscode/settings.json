@@ -11,5 +11,10 @@
         "cmd": "go tool golines --base-formatter=gofmt -w ${file}"
       }
     ]
+  },
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "*.go": "${capture}_test.go"
   }
 }
