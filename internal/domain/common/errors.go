@@ -2,18 +2,21 @@ package common
 
 import (
 	"errors"
-	"fmt"
 )
 
 var (
 	ErrForbidden = errors.New("forbidden")
+	ErrNotFound  = errors.New("not found")
 )
 
 type ValidationError struct {
-	Field string
-	Code  string
+	code string
 }
 
-func (e *ValidationError) Error() string {
-	return fmt.Sprintf("%s: %s", e.Field, e.Code)
+func NewValidationError(code string) *ValidationError {
+	return &ValidationError{code: code}
 }
+
+func (e *ValidationError) Code() string { return e.code }
+
+func (e *ValidationError) Error() string { return e.code }

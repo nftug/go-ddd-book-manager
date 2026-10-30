@@ -17,11 +17,19 @@ func None[T comparable]() Option[T] {
 	return Option[T]{hasValue: false}
 }
 
-func NewOption[T comparable](value *T) Option[T] {
+func New[T comparable](value *T) Option[T] {
 	if value == nil {
 		return None[T]()
 	}
 	return Some(*value)
+}
+
+// Map transforms a present value and preserves an absent value.
+func (o Option[T]) Map[U comparable](transform func(T) U) Option[U] {
+	if v, ok := o.Get(); ok {
+		return Some(transform(v))
+	}
+	return None[U]()
 }
 
 func (o Option[T]) IsSome() bool { return o.hasValue }

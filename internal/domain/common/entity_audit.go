@@ -20,22 +20,34 @@ func RestoreEntityAudit(
 	created AuditRecord,
 	updated option.Option[AuditRecord],
 ) EntityAudit {
-	return EntityAudit{
-		id:      id,
-		created: created,
-		updated: updated,
-	}
+	return EntityAudit{id, created, updated}
 }
 
 func NewEntityAudit(ctx DomainContext, permission PermissionPolicy) (EntityAudit, error) {
 	if err := EnsureCanCreate(permission); err != nil {
 		return EntityAudit{}, err
 	}
+	return newEntityAudit(ctx, ctx.NewUUIDv7()), nil
+}
+
+// NewEntityAuditWithID creates audit data for an entity whose ID comes from an external identity provider.
+func NewEntityAuditWithID(
+	ctx DomainContext,
+	permission PermissionPolicy,
+	id uuid.UUID,
+) (EntityAudit, error) {
+	if err := EnsureCanCreate(permission); err != nil {
+		return EntityAudit{}, err
+	}
+	return newEntityAudit(ctx, id), nil
+}
+
+func newEntityAudit(ctx DomainContext, id uuid.UUID) EntityAudit {
 	return EntityAudit{
-		id:      ctx.NewUUIDv7(),
+		id:      id,
 		created: NewAuditRecord(ctx),
 		updated: option.None[AuditRecord](),
-	}, nil
+	}
 }
 
 func (e *EntityAudit) Update(ctx DomainContext, permission PermissionPolicy) error {

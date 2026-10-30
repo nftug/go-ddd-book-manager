@@ -13,7 +13,7 @@ type AuditRecord struct {
 	timestamp time.Time
 }
 
-func (a AuditRecord) UserId() uuid.UUID    { return a.userId }
+func (a AuditRecord) UserID() uuid.UUID    { return a.userId }
 func (a AuditRecord) UserName() string     { return a.userName }
 func (a AuditRecord) Timestamp() time.Time { return a.timestamp }
 
@@ -22,23 +22,26 @@ func RestoreAuditRecord(userId uuid.UUID, userName string, timestamp time.Time) 
 }
 
 func RestoreAuditRecordOption(
-	userId *uuid.UUID,
-	userName *string,
-	timestamp *time.Time,
+	userId option.Option[uuid.UUID],
+	userName option.Option[string],
+	timestamp option.Option[time.Time],
 ) (option.Option[AuditRecord], error) {
-	if userId == nil && userName == nil && timestamp == nil {
+	if userId.IsNone() && userName.IsNone() && timestamp.IsNone() {
 		return option.None[AuditRecord](), nil
 	}
-	if userId != nil && userName != nil && timestamp != nil {
-		return option.Some(AuditRecord{*userId, *userName, *timestamp}), nil
+	if userId.IsSome() && userName.IsSome() && timestamp.IsSome() {
+		userId, _ := userId.Get()
+		userName, _ := userName.Get()
+		timestamp, _ := timestamp.Get()
+		return option.Some(AuditRecord{userId, userName, timestamp}), nil
 	}
 	return option.None[AuditRecord](), errors.New("invalid state for audit record")
 }
 
+func NewAuditRecordFor(actor Actor, timestamp time.Time) AuditRecord {
+	return AuditRecord{userId: actor.ID(), userName: actor.UserName(), timestamp: timestamp.UTC()}
+}
+
 func NewAuditRecord(ctx DomainContext) AuditRecord {
-	return AuditRecord{
-		userId:    ctx.Actor().ID(),
-		userName:  ctx.Actor().UserName(),
-		timestamp: ctx.UTCNow(),
-	}
+	return NewAuditRecordFor(ctx.Actor(), ctx.UTCNow())
 }

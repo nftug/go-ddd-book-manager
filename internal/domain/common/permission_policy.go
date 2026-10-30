@@ -1,5 +1,7 @@
 package common
 
+import "github.com/samber/lo"
+
 type PermissionPolicy interface {
 	CanCreate() bool
 	CanUpdate() bool
@@ -7,22 +9,11 @@ type PermissionPolicy interface {
 }
 
 func EnsureCanCreate(permission PermissionPolicy) error {
-	if !permission.CanCreate() {
-		return ErrForbidden
-	}
-	return nil
+	return lo.Ternary(permission.CanCreate(), nil, ErrForbidden)
 }
-
 func EnsureCanUpdate(permission PermissionPolicy) error {
-	if !permission.CanUpdate() {
-		return ErrForbidden
-	}
-	return nil
+	return lo.Ternary(permission.CanUpdate(), nil, ErrForbidden)
 }
-
 func EnsureCanDelete(permission PermissionPolicy) error {
-	if !permission.CanDelete() {
-		return ErrForbidden
-	}
-	return nil
+	return lo.Ternary(permission.CanDelete(), nil, ErrForbidden)
 }
