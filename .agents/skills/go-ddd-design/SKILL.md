@@ -7,7 +7,7 @@ description: このリポジトリでGoによるDDD設計・実装・レビュ�
 
 このSkillは、このリポジトリでDDDに関わるコードを追加・変更・レビューするときに使用する。
 
-既存の設計を優先し、一般的なGoプロジェクトでよく使われるという理由だけで別の設計パターンへ置き換えないこと。
+現在の実装を設計判断の基準とする。記述とコードが異なる場合は、関連する実装とテストを確認してから記述を更新する。一般的なGoプロジェクトでよく使われるという理由だけで別の設計パターンへ置き換えない。
 
 ## 作業前に読むもの
 
@@ -55,38 +55,35 @@ interfaceは利用側のpackageで定義し、小さく保つ。
 
 依存性注入には `github.com/samber/do/v2` を使用する。
 
-依存の登録・解決はcomposition boundaryにまとめ、既存の `internal/infra/injector.go` を参考にする。
+providerの登録は `internal/infra/injector.go` と `internal/application/injector.go` にまとめる。
 
-providerで解決した依存を各コンポーネントに渡し、業務処理中にcontainerから依存を取得しない。Domain objectにcontainerを持ち込まない。
+各providerが依存を解決してServiceのfieldへ渡す。`Execute`などの業務処理中にcontainerから依存を取得しない。Domain objectにcontainerを持ち込まない。
 
 interfaceを通して利用する依存は、そのinterface型で登録・解決する。injectorを作成した呼び出し元は、終了時に `Shutdown()` を呼ぶ。
 
-例えば、Serviceを構築するコンストラクタは下記のように書く。
+既存のproviderと登録の例:
 
 ```go
-// Repositoryのproviderは利用側のinterfaceを返す。
-func NewRepository(i do.Injector) (book.Repository, error) {
-	db := do.MustInvoke[*bun.DB](i)
-	return &repository{db: db}, nil
+func NewRepository(i do.Injector) (domain.Repository, error) {
+	return &repository{db: do.MustInvoke[*bun.DB](i)}, nil
 }
 
-// Serviceのproviderで依存を解決し、constructorに渡す。
-func NewService(i do.Injector) (*Service, error) {
-	repo := do.MustInvoke[book.Repository](i)
-	return NewService(repo), nil
+func NewGetBookDetails(i do.Injector) (*GetBookDetails, error) {
+	return &GetBookDetails{q: do.MustInvoke[QueryService](i)}, nil
 }
 ```
 
-サービスを置いた各レイヤーのパッケージのルートに `injector.go` を置いて、次のように実装する。
+ルートの `Inject` でproviderを登録する。Featureごとに `injector.go` を増やさない。
 
 ```go
 func Inject(i do.Injector) do.Injector {
-  do.Provide(i, NewRepository)
-  do.Provide(i, NewService)
+    do.Provide(i, bookinfra.NewRepository)
+    do.Provide(i, bookinfra.NewQueryService)
+    return i
 }
 ```
 
-DIコンテナの構築時は、各レイヤーのルートパッケージにある `Inject` メソッドを呼び出す。
+構築時にInfrastructureとApplicationの各 `Inject` を呼び、作成元で `Shutdown()` を呼ぶ。
 
 ### その他
 
@@ -94,17 +91,17 @@ DIコンテナの構築時は、各レイヤーのルートパッケージにあ
 
 ## 検証
 
-Goコードを変更した後は、リポジトリルートで以下を実行する。
+Goコードを変更した後は、リポジトリルートで `task fix` を実行し、その後に編集したGoファイルが属する各packageだけを `go test` する。`task test` は `go test ./...` を実行するため、明示的な指示がない限り使わない。
 
 ```sh
 task fix
-task test
+go test ./internal/application/book/command
 ```
 
-Infrastructure、Repository、Bun model、Migration、DB動作を変更した場合は追加で実行する。
+上記のpackage pathは例。複数packageを編集した場合は各packageをテストする。InfrastructureやDBの動作を確認する必要がある場合は、対象packageのintegration testを実行する。
 
 ```sh
-task test-integration
+go test -tags=integration ./internal/infra/book
 ```
 
 DockerやPostgreSQLを利用できずintegration testを実行できなかった場合は、その旨を明示する。

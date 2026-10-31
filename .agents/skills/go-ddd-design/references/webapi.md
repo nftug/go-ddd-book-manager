@@ -1,5 +1,7 @@
 # Web API層の設計規則
 
+この層は現時点で未実装。以下は実装時の方針であり、既存コードの挙動を記述したものではない。Applicationの入力DTOなど既に実装された境界を優先して確認する。
+
 対象は`internal/webapi/`とする。
 
 Echoを利用し、HTTPとApplicationの入出力を接続する。
@@ -20,10 +22,7 @@ internal/webapi/
 │   └── errors.go
 ├── book/
 │   ├── router.go
-│   ├── handler.go
-│   ├── identity.go
-│   ├── query.go
-│   └── request.go
+│   └── handler.go
 └── user/
     ├── router.go
     └── handler.go
@@ -44,19 +43,19 @@ Handlerや認証middlewareからBunやInfrastructureの具象Repositoryを操作
 Handlerの責務は以下とする。
 
 1. path・query・bodyを読み取る
-2. ApplicationのIdentity・検索条件・Requestへ変換する
+2. ApplicationのIdentity・検索条件・Requestへbindする
 3. 認証済みActorとrequestの`context.Context`を渡してUseCaseを実行する
 4. 成功レスポンスを返す
 
 エラーは共通のHTTPErrorHandlerへ返す。
 
-Echoの`param`・`query`タグやbinding用structはWeb API側に置く。
+bindingに使用するstructと`param`・`query`・`json`タグはApplicationの入力DTOに置く。Web APIはこれらの型を使って入力元ごとにbindする。
 
-| Web API側                           | Application側              |
-| ----------------------------------- | -------------------------- |
-| `identity.go`のpath binding用struct | Feature直下の`identity.go` |
-| `query.go`のquery binding用struct   | `query/query.go`           |
-| `request.go`のbody binding用struct  | `dto/request.go`           |
+| 入力元 | Application側 |
+| --- | --- |
+| path | Featureの`dto/identity.go` |
+| query | Featureの`dto/query.go`、共通のページング型は`common/pagination.go` |
+| body | Featureの`dto/request.go` |
 
 UUIDや数値へのparse、不正なJSONなどのHTTP入力エラーはWeb APIで扱う。
 

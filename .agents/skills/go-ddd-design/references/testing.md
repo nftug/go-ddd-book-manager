@@ -41,7 +41,7 @@ integration testにはbuild tagを使用する。
 Repository testでは必要に応じて以下を確認する。
 
 - Migration適用
-- Save / Find round-trip
+- Create / FindByID round-trip
 - Update
 - absence
 - collection ordering
@@ -80,22 +80,16 @@ generated codeそのものの実装詳細を重複してテストしない。
 
 ## 実行
 
-通常:
+Go sourceを変更した場合はリポジトリルートで先に `task fix` を実行し、その後に編集したGoファイルが属する各packageのテストを実行する。
 
 ```sh
-task test
+go test ./internal/application/book/query
 ```
 
-Infrastructure変更時:
+InfrastructureのDB動作を確認する場合は、対象packageのintegration testを実行する。
 
 ```sh
-task test-integration
+go test -tags=integration ./internal/infra/book
 ```
 
-Go source変更後は先に:
-
-```sh
-task fix
-```
-
-を実行する。
+`task test` は `go test ./...` を実行するため、明示的な指示がない限り使わない。

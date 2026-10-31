@@ -6,7 +6,7 @@
 internal/infra/
 ```
 
-InfrastructureはDomain portを実装する。
+InfrastructureはDomainのRepository・Clock・UUIDGeneratorと、ApplicationのQueryServiceを実装する。
 
 Domain packageからInfrastructure packageへ依存させてはならない。
 
@@ -22,9 +22,11 @@ internal/infra/
 │   ├── model.go
 │   ├── converter.go
 │   ├── repository.go
+│   ├── queryservice.go
 │   └── repository_test.go
 ├── user/
 ├── common/
+├── database/
 ├── migrations/
 └── testutil/
 ```
@@ -98,27 +100,27 @@ Domain/ApplicationのNotFound errorへ変換しない。
 
 DB errorは可能な限り元のerrorを保持して返す。
 
-## Aggregate Save
+`Create`・`Update`・`Delete`を別の操作として実装する。重複キーによる作成失敗、またはversion条件付きの更新・削除が0行だった場合は`common.ErrConflict`を返す。`database.ConflictOnDuplicate`と`database.ValidateNoConflict`に共通処理がある。
+
+## Aggregateの永続化
 
 Aggregateは一単位として永続化する。
 
 複数tableへ書き込む場合はtransactionを使う。
 
-Bookのような小規模Aggregateでは、
+Bookは`Create`で親と子をinsertし、`Update`でversion条件付きの親更新後に既存の子をdeleteしてから現在の子をinsertする。
 
-```text
-parent upsert
-child delete
-child insert
-```
-
-による全置換を許容する。
+更新時の子の全置換は同じtransaction内で行う。`Delete`は親をversion条件付きで削除し、子はDBのcascadeで削除する。
 
 実際の性能問題が発生する前から差分永続化を導入しない。
 
 atomic correctnessを優先する。
 
 複数queryでAggregateを復元する場合、一貫したsnapshotが必要なら適切なread transaction / isolation levelを使用する。
+
+## QueryService
+
+Applicationの`query/queryservice.go`に定義したinterfaceを実装し、DTOを直接投影する。Bookの詳細・一覧は、関連データの読取りや件数と一覧の整合性を保つため、read-onlyのrepeatable-read transactionを使用する。検索条件は`dto.BookQuery`、ページングは正規化済みの`application/common.Pagination`を受け取り、一覧の同値順序にはIDを使って安定させる。参照時の権限表示はDomainの読取り用Policyに従う。
 
 ## Audit Persistence
 

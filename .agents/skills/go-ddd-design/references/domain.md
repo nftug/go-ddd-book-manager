@@ -287,7 +287,9 @@ Repository interfaceはDomainのFeature packageに定義する。
 ```go
 type Repository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (*Book, error)
-	Save(ctx context.Context, book Book) error
+	Create(ctx context.Context, book Book) error
+	Update(ctx context.Context, book Book) error
+	Delete(ctx context.Context, book Book) error
 }
 ```
 

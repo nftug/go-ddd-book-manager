@@ -19,10 +19,10 @@ internal/application/
 │   ├── query/
 │   │   ├── get_book_details.go
 │   │   ├── get_book_list.go
-│   │   ├── query.go
-│   │   └── query_service.go
+│   │   └── queryservice.go
 │   └── dto/
 │       ├── identity.go
+│       ├── query.go
 │       ├── request.go
 │       └── response.go
 ├── user/
@@ -30,7 +30,7 @@ internal/application/
 │   │   └── sync_user.go
 │   ├── query/
 │   │   ├── get_user_details.go
-│   │   └── query_service.go
+│   │   └── queryservice.go
 │   └── dto/
 │       ├── request.go
 │       └── response.go
@@ -47,9 +47,9 @@ Featureごとに`dto` packageを設け、作成・更新などの入力DTOは`dt
 
 CommandとQueryで同じ表現が必要な場合は、`dto` packageの型を共有する。
 
-検索条件は`query/query.go`、QueryService interfaceは`query/query_service.go`へ置く。
+検索条件は`dto/query.go`、共通のページング型は`common/pagination.go`、QueryService interfaceは`query/queryservice.go`へ置く。
 
-親のFeature packageにはIdentityなど子package間で共有する型を置き、`command`・`query`へ依存させない。
+親のFeature packageに子package間で共有する型を置く場合は、`command`・`query`へ依存させない。
 
 `command`と`query`は`dto`に依存してよいが、互いに依存させない。`dto`から`command`・`query`へは依存させない。
 
@@ -71,7 +71,7 @@ InfrastructureはApplicationが定義したQueryService interfaceを実装して
 
 処理順はUseCaseに応じて決め、Domainの認可やvalidationをApplicationへ複製しない。
 
-Repository interfaceは既存のDomain packageのものを使い、同じ目的のinterfaceをApplicationへ重複定義しない。
+Repository interfaceは既存のDomain packageのものを使い、同じ目的のinterfaceをApplicationへ重複定義しない。現在のRepository契約は`FindByID`・`Create`・`Update`・`Delete`で、UseCaseは操作に応じて呼び分ける。
 
 ## 入力DTOとIdentity
 
@@ -81,28 +81,27 @@ path parameterに対応する対象識別情報、query parameterに対応する
 
 ```go
 type BookIdentity struct {
-	BookID uuid.UUID
+	BookID uuid.UUID `param:"book_id"`
 }
 ```
 
 詳細取得・更新・削除・貸出・返却など、同じ対象を識別するUseCaseで`BookIdentity`を受け取る。
 
-HTTPとの対応付けはPresentation側で行う。
+入力DTOはバインディング用structとしても使用し、HTTP入力との対応を示す`param`・`query`・`json`タグを持ってよい。
 
-| 情報 | 所有する層 |
-| --- | --- |
-| `dto.BookIdentity`、一覧検索条件、更新入力 | Application |
-| `/books/:book_id`などのroute定義 | Presentation |
-| Echoの`param`・`query`タグ、binding | Presentation |
-| path/query文字列からUUIDや数値へのparse | Presentation |
+| 情報                                          | 所有する層   |
+| --------------------------------------------- | ------------ |
+| `dto.BookIdentity`、一覧検索条件、更新入力    | Application  |
+| `/books/:book_id`などのroute定義              | Presentation |
+| `param`・`query`・`json`タグ、binding用struct | Application  |
+| 入力元を指定したbinding                       | Presentation |
+| path/query文字列からUUIDや数値へのparse       | Presentation |
 
-Presentationのbinding用structからApplicationの入力DTOへ明示的に変換する。
-
-Applicationの入力DTOにEcho用tagやHTTP requestへの依存を持ち込まない。
+PresentationはApplicationの入力DTOへ入力元を明示してbindする。タグは許容するが、ApplicationはEchoの型やHTTP requestに依存しない。
 
 ページ番号・ページサイズ・検索条件の組み合わせなど、UseCaseとしての入力検証はApplicationで行う。
 
-ページサイズには上限を設け、offset計算のoverflowを防ぐ。
+`common.Pagination.Normalize`で未指定のpage/page_sizeを1/10に補い、負数、100を超えるpage_size、offset計算のoverflowを拒否する。QueryServiceには正規化済みの値を渡す。
 
 タイトルやISBNなどのDomain validationは、Domainのconstructorに委ねる。
 
@@ -116,7 +115,7 @@ optionalな入力は既存の`option.Option[T]`を利用してよい。
 
 一覧・詳細表示のためだけにAggregate全体を復元する必要はない。
 
-検索・ソート・ページングはInfrastructureのqueryへ委ね、必要なデータをDTOへ投影する。
+検索・ソート・ページングはInfrastructureのqueryへ委ね、必要なデータをDTOへ投影する。Book一覧は件数と一覧を同一のread-only repeatable-read transactionで取得する。
 
 一覧の順序は同値の場合のID順なども含めて安定させる。
 
@@ -213,15 +212,15 @@ Aggregate内部の永続化transactionはRepository実装側で完結させる�
 
 必要になる前からUnit of Work等を導入しない。
 
-RepositoryのSave内transactionだけでは、取得から保存までの同時更新は保護されない。
+Repositoryの更新処理内のtransactionだけでは、取得から保存までの同時更新は保護されない。
 
-貸出・返却などの競合対策が必要な操作では、楽観ロック等をRepository側で実現し、Applicationで競合時の扱いを定義する。
+現在のRepositoryは`version`を使った楽観ロックを実装し、更新・削除が0行なら`common.ErrConflict`を返す。Applicationはこのerrorを保持して返す。
 
 ## 依存注入
 
-Service本体はconstructorの引数で必要な依存を受け取る。
+Serviceのproviderは`do.Injector`から必要なinterfaceを解決し、Serviceのfieldに設定する。
 
-既存の`samber/do`による依存の解決・登録はcomposition boundaryへ寄せ、Serviceの処理中にcontainerから依存を取得しない。
+既存の`samber/do`によるprovider登録は`internal/application/injector.go`へまとめる。各providerは依存を解決してServiceへ保持し、Serviceの処理中にcontainerから依存を取得しない。
 
 Rustの`Arc`やRegistry構造をそのまま再現するためだけの抽象を追加しない。
 
