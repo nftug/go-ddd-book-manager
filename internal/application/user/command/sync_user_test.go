@@ -138,8 +138,8 @@ func userPtr(user du.User) *du.User { return &user }
 func newUserCommandService[T any](
 	t *testing.T,
 	repo du.Repository,
-	constructor func(do.Injector) (*T, error),
-) *T {
+	constructor func(do.Injector) (T, error),
+) T {
 	t.Helper()
 	injector := do.New()
 	do.ProvideValue[du.Repository](injector, repo)

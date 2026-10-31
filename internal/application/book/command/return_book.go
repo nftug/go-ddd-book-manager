@@ -9,21 +9,25 @@ import (
 	dc "go-ddd-book-manager/internal/domain/common"
 )
 
-type ReturnBook struct {
+type ReturnBook interface {
+	Execute(ctx context.Context, actor dc.Actor, id dto.BookIdentity) error
+}
+
+type returnBook struct {
 	books db.Repository
 	clock dc.Clock
 	ids   dc.UUIDGenerator
 }
 
-func NewReturnBook(i do.Injector) (*ReturnBook, error) {
-	return &ReturnBook{
+func NewReturnBook(i do.Injector) (ReturnBook, error) {
+	return &returnBook{
 		books: do.MustInvoke[db.Repository](i),
 		clock: do.MustInvoke[dc.Clock](i),
 		ids:   do.MustInvoke[dc.UUIDGenerator](i),
 	}, nil
 }
 
-func (s *ReturnBook) Execute(ctx context.Context, actor dc.Actor, id dto.BookIdentity) error {
+func (s *returnBook) Execute(ctx context.Context, actor dc.Actor, id dto.BookIdentity) error {
 	b, err := ac.FindRequired(func() (*db.Book, error) {
 		return s.books.FindByID(ctx, id.BookID)
 	})

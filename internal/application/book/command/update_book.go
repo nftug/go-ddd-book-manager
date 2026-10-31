@@ -11,21 +11,30 @@ import (
 	"github.com/samber/do/v2"
 )
 
-type UpdateBook struct {
+type UpdateBook interface {
+	Execute(
+		ctx context.Context,
+		actor dc.Actor,
+		id dto.BookIdentity,
+		req dto.BookRequest,
+	) error
+}
+
+type updateBook struct {
 	books db.Repository
 	clock dc.Clock
 	ids   dc.UUIDGenerator
 }
 
-func NewUpdateBook(i do.Injector) (*UpdateBook, error) {
-	return &UpdateBook{
+func NewUpdateBook(i do.Injector) (UpdateBook, error) {
+	return &updateBook{
 		books: do.MustInvoke[db.Repository](i),
 		clock: do.MustInvoke[dc.Clock](i),
 		ids:   do.MustInvoke[dc.UUIDGenerator](i),
 	}, nil
 }
 
-func (s *UpdateBook) Execute(
+func (s *updateBook) Execute(
 	ctx context.Context,
 	actor dc.Actor,
 	id dto.BookIdentity,

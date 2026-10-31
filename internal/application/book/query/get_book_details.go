@@ -8,13 +8,21 @@ import (
 	dc "go-ddd-book-manager/internal/domain/common"
 )
 
-type GetBookDetails struct{ q QueryService }
-
-func NewGetBookDetails(i do.Injector) (*GetBookDetails, error) {
-	return &GetBookDetails{q: do.MustInvoke[QueryService](i)}, nil
+type GetBookDetails interface {
+	Execute(
+		ctx context.Context,
+		actor dc.Actor,
+		id dto.BookIdentity,
+	) (dto.BookResponse, error)
 }
 
-func (s *GetBookDetails) Execute(
+type getBookDetails struct{ q QueryService }
+
+func NewGetBookDetails(i do.Injector) (GetBookDetails, error) {
+	return &getBookDetails{q: do.MustInvoke[QueryService](i)}, nil
+}
+
+func (s *getBookDetails) Execute(
 	ctx context.Context,
 	actor dc.Actor,
 	id dto.BookIdentity,

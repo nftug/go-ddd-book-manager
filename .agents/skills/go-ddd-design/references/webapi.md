@@ -1,6 +1,6 @@
 # Web API層の設計規則
 
-この層は現時点で未実装。以下は実装時の方針であり、既存コードの挙動を記述したものではない。Applicationの入力DTOなど既に実装された境界を優先して確認する。
+この層は実装済み。現在のコードとテストを設計判断の基準とする。
 
 対象は`internal/webapi/`とする。
 
@@ -12,23 +12,15 @@ Domain invariantやUseCaseの処理をHandlerへ移さない。
 
 ```text
 internal/webapi/
-├── server.go
-├── router.go
-├── error_handler.go
-├── auth/
-│   ├── middleware.go
-│   ├── claims.go
-│   ├── context.go
-│   └── errors.go
-├── book/
-│   ├── router.go
-│   └── handler.go
-└── user/
-    ├── router.go
-    └── handler.go
+├── server.go          # Echoの構築とroute登録
+├── injector.go        # Web APIのprovider登録
+├── error_handler.go   # HTTPエラー変換とログ
+├── auth/              # Token検証、認証middleware、Identity・Actor
+├── bind/              # 入力元別のbinding
+├── handler/           # UseCase実行とレスポンスの共通処理
+├── book/              # 書籍のrouteとHandler
+└── user/              # UserのrouteとHandler
 ```
-
-上記は配置例とし、必要なファイルのみ追加する。
 
 Feature単位でHandlerとroute登録をまとめる。HTTP HandlerをCommand・Queryのsubpackageへ分ける必要はない。
 
@@ -36,7 +28,7 @@ Web APIはApplicationと必要なDomain型を利用する。ApplicationやDomain
 
 Handlerや認証middlewareからBunやInfrastructureの具象Repositoryを操作しない。
 
-依存の生成・登録はcomposition boundaryで行い、HandlerはconstructorでUseCaseなどの依存を受け取る。
+`webapi.Inject` でproviderを登録し、HandlerのconstructorでUseCaseなどの依存を解決して保持する。
 
 ## Handlerとbinding
 
@@ -49,7 +41,7 @@ Handlerの責務は以下とする。
 
 エラーは共通のHTTPErrorHandlerへ返す。
 
-bindingに使用するstructと`param`・`query`・`json`タグはApplicationの入力DTOに置く。Web APIはこれらの型を使って入力元ごとにbindする。
+`bind.PathParams`・`bind.QueryParams`・`bind.Body` はEchoのDefaultBinderを入力元ごとに呼ぶ。bindingに使用するstructと`param`・`query`・`json`タグはApplicationの入力DTOに置く。Web APIはこれらの型を使って入力元ごとにbindする。
 
 | 入力元 | Application側 |
 | --- | --- |
@@ -65,7 +57,7 @@ path・query・bodyの入力元を明示してbindし、bodyでpathの識別情�
 
 Domain EntityやBun modelへ直接bindしない。
 
-Applicationの返却DTOはそのままJSONへ変換してよい。HTTP固有の表現が必要な場合はWeb APIの`response.go`で変換する。
+`handler.JSON` と `handler.NoContent` はActorの取得、UseCaseの実行、成功レスポンスを共通化する。`handler.IdentityJSON` はIdentityを使う同期処理に使用する。Applicationの返却DTOはそのままJSONへ変換する。
 
 ## ルーティングと成功レスポンス
 
@@ -73,7 +65,7 @@ HTTP method・path・status・middlewareの対応はWeb APIで定義する。
 
 ApplicationのIdentityは対象の識別情報を表し、`/books/:book_id`などのroute文字列を持たない。
 
-基本的なrouteは以下とする。共通のAPI prefixを付ける場合はルート登録側でまとめる。
+現在のrouteは以下のとおり。共通のAPI prefixはない。
 
 | Method | Path                        | UseCase            | 成功status |
 | ------ | --------------------------- | ------------------ | ---------- |
@@ -84,11 +76,12 @@ ApplicationのIdentityは対象の識別情報を表し、`/books/:book_id`な�
 | POST   | `/books`                    | 書籍作成           | 201        |
 | PUT    | `/books/:book_id`           | 書籍更新           | 204        |
 | DELETE | `/books/:book_id`           | 書籍削除           | 204        |
+| PUT    | `/books/:book_id/owner`     | 所有者変更         | 204        |
 | POST   | `/books/:book_id/checkouts` | 貸出               | 204        |
 | POST   | `/books/:book_id/return`    | 返却               | 204        |
 | GET    | `/books/:book_id/checkouts` | 貸出履歴取得       | 200        |
 
-SyncUserは新規取り込み・既存同期で共通の成功契約とし、Applicationが返す同期後の`UserResponseDTO`を返す。
+SyncUserは新規取り込み・既存同期で共通の成功契約とし、Applicationが返す同期後の`UserResponse`を返す。書籍作成は`CreatedResponse`を返す。
 
 204ではbodyを返さない。
 
@@ -110,7 +103,7 @@ SyncUserは新規取り込み・既存同期で共通の成功契約とし、App
 
 SyncUserはHTTP methodとrouteで明示的に登録する。同じ`/users/me`でもGETは登録済みUserを必要とする。
 
-同期routeはIdentity認証のみのgroupへ、その他はIdentity認証とUser解決を適用するgroupへ登録するなど、middlewareの適用範囲を明示する。
+同期routeは`auth.IdentityGroup`へ、その他は`auth.ActorGroup`へ登録する。
 
 RequireUserはApplicationのActor解決処理を呼び出し、Userの取得・Actorへの変換を委ねる。
 
@@ -118,7 +111,7 @@ User不在は認証エラー（401）とし、通常の対象EntityのNotFound�
 
 DB障害はUser不在と扱わず、元のerrorを保持してサーバーエラーへ渡す。
 
-Actor・Identityを共有Serviceのfieldやglobal変数へ保存しない。request内の値は型付きaccessorで取得し、型不一致などの内部不整合は500として扱う。
+Actor・Identityを共有Serviceのfieldやglobal変数へ保存しない。requestの`context.Context`内の値は`IdentityFrom`・`ActorFrom`で取得し、型不一致などの内部不整合は500として扱う。
 
 ## SyncUser
 
@@ -144,7 +137,7 @@ name・email・roleは検証済みclaimまたはIdPのUserInfoから取得する
 
 roleはIdP固有のclaimから許可したDomain roleへ明示的に変換する。通常のUserにSystemRoleを割り当てない。
 
-SyncUserに必要なprofile情報の検証は同期処理で行い、その他のAPIで不要なname・email claimまで必須にしない。
+SyncUserに必要なprofile情報の検証は同期処理で行い、そのDomain ValidationErrorは401に変換する。その他のAPIで不要なname・email claimまで必須にしない。
 
 通常APIのActorはDBのUserから作るため、name・email・roleの変更は次のSyncUser成功時に反映される。
 
@@ -156,28 +149,15 @@ API向けAccess Tokenと、ログイン結果を表すID Tokenを区別する。
 
 移植元と同様にKeycloakのJWT Access Tokenを前提とする。別のIdPやopaque tokenへ対応するときは検証方式を見直す。
 
-検証部品の第一候補は`auth0/go-jwt-middleware`の`validator`と`jwks`とし、薄いEcho middlewareから利用する。
+`auth.Config` のissuerとaudienceを使い、`auth0/go-jwt-middleware/v2`のvalidatorとJWKS caching providerで検証する。issuerはHTTPまたはHTTPSのURL、audienceは空でない必要がある。
 
-ライブラリのHTTP middlewareにエラーレスポンスを直接書かせず、検証結果をEchoのerror処理へ接続する。
+- 署名アルゴリズムはRS256。署名・issuer・audience・時間条件を検証する。
+- `exp`は必須、`sub`はnilでないUUID、claimの`typ`は`Bearer`を要求する。
+- `realm_access.roles`に`Admin`があればAdminRole、それ以外はUserRoleに変換する。nameとemailは同期時に利用する。
+- JWKSのキャッシュは5分、HTTP clientのtimeoutは5秒で、同期refreshを使う。
+- 無効なTokenやclaimは`ErrUnauthorized`、鍵取得などprovider側の失敗は`ErrProvider`として区別する。後者は500になる。
 
-以下を設定・検証する。
-
-- 設定で固定したissuer
-- このAPIを対象とするaudience（必須）
-- 許可した署名アルゴリズムと署名
-- 有効期限（expを必須とする）と有効開始時刻などの時間条件
-- Userを識別するsub
-- IdPのtoken種別を区別するために必要なclaim等の規則
-
-未検証のtokenからissuerや鍵取得先を自由に選ばせない。
-
-OIDC discoveryとJWKSの取得・キャッシュにはライブラリの機能を使う。通信timeoutや鍵更新時の挙動を確認し、毎requestでJWKSを取得しない。
-
-現在のDomainはUser IDにUUIDを使うため、単一issuerのKeycloak subがUUID形式であることを前提としてparseする。一般のOIDC subはUUIDとは限らない。
-
-署名・issuer・audience等の検証完了前のclaimを、Actor生成やSyncUserへ利用しない。
-
-`coreos/go-oidc`はOIDCログイン・ID Token検証が必要になった場合の候補とする。Echo専用のJWT middlewareを使う場合も、discovery・JWKS管理・Access Token検証の責務を確認する。
+署名などの検証前のclaimをActor生成やSyncUserに使わない。UUID形式のsubとclaimの扱いはKeycloakを前提とするため、別のIdPやopaque tokenへの対応時は見直す。
 
 ## Echoのエラーハンドリング
 
@@ -207,7 +187,7 @@ Echo由来の404・405・413・415などのHTTPエラーも尊重する。
 
 500は汎用メッセージを返し、SQL・token・内部errorの詳細をレスポンスへ露出しない。
 
-DomainのValidationErrorを公開する場合はfield・codeを利用し、内部error文字列をそのまま返さない。
+JSONは`message`を返し、DomainのValidationErrorには`field`・`code`も含める。内部error文字列は返さない。
 
 レスポンス送信済みの場合は二重書き込みを避ける。HEADなどのHTTP上のbody制約も守る。
 
@@ -215,11 +195,11 @@ errorの文脈を追加するときは`%w`で元のerrorを保持する。
 
 ## middlewareとログ
 
-共通middlewareには必要に応じてRequest ID、Recover、Request Logger、Body Limit、CORSを登録する。
+共通middlewareとしてRequest IDとRecoverを登録している。
 
 Recoverによるpanic処理も共通のエラーハンドリングへ接続する。
 
-ログはRequest ID・method・route・statusなどを使い、Authorization headerやtokenを記録しない。
+ログはRequest ID・method・route・statusを含め、5xxと送信済みレスポンスのエラーでは元のerrorも記録する。Authorization headerやtokenを記録しない。
 
 ## テスト
 

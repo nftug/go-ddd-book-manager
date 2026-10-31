@@ -10,13 +10,17 @@ import (
 	"uuid"
 )
 
-type ResolveActor struct{ repo du.Repository }
-
-func NewResolveActor(i do.Injector) (*ResolveActor, error) {
-	return &ResolveActor{repo: do.MustInvoke[du.Repository](i)}, nil
+type ResolveActor interface {
+	Execute(ctx context.Context, id uuid.UUID) (dc.Actor, error)
 }
 
-func (s *ResolveActor) Execute(ctx context.Context, id uuid.UUID) (dc.Actor, error) {
+type resolveActor struct{ repo du.Repository }
+
+func NewResolveActor(i do.Injector) (ResolveActor, error) {
+	return &resolveActor{repo: do.MustInvoke[du.Repository](i)}, nil
+}
+
+func (s *resolveActor) Execute(ctx context.Context, id uuid.UUID) (dc.Actor, error) {
 	u, err := ac.FindRequired(func() (*du.User, error) {
 		return s.repo.FindByID(ctx, id)
 	})

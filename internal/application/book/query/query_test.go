@@ -201,8 +201,8 @@ func TestGetCheckoutHistory(t *testing.T) {
 func newBookQueryService[T any](
 	t *testing.T,
 	query q.QueryService,
-	constructor func(do.Injector) (*T, error),
-) *T {
+	constructor func(do.Injector) (T, error),
+) T {
 	t.Helper()
 	injector := do.New()
 	do.ProvideValue[q.QueryService](injector, query)

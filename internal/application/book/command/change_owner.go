@@ -11,15 +11,24 @@ import (
 	"github.com/samber/do/v2"
 )
 
-type ChangeOwner struct {
+type ChangeOwner interface {
+	Execute(
+		ctx context.Context,
+		actor dc.Actor,
+		id dto.BookIdentity,
+		req dto.OwnerChangeRequest,
+	) error
+}
+
+type changeOwner struct {
 	books db.Repository
 	users du.Repository
 	clock dc.Clock
 	ids   dc.UUIDGenerator
 }
 
-func NewChangeOwner(i do.Injector) (*ChangeOwner, error) {
-	return &ChangeOwner{
+func NewChangeOwner(i do.Injector) (ChangeOwner, error) {
+	return &changeOwner{
 		books: do.MustInvoke[db.Repository](i),
 		users: do.MustInvoke[du.Repository](i),
 		clock: do.MustInvoke[dc.Clock](i),
@@ -27,7 +36,7 @@ func NewChangeOwner(i do.Injector) (*ChangeOwner, error) {
 	}, nil
 }
 
-func (s *ChangeOwner) Execute(
+func (s *changeOwner) Execute(
 	ctx context.Context,
 	actor dc.Actor,
 	id dto.BookIdentity,

@@ -9,13 +9,17 @@ import (
 	dc "go-ddd-book-manager/internal/domain/common"
 )
 
-type DeleteBook struct{ books db.Repository }
-
-func NewDeleteBook(i do.Injector) (*DeleteBook, error) {
-	return &DeleteBook{books: do.MustInvoke[db.Repository](i)}, nil
+type DeleteBook interface {
+	Execute(ctx context.Context, actor dc.Actor, id dto.BookIdentity) error
 }
 
-func (s *DeleteBook) Execute(ctx context.Context, actor dc.Actor, id dto.BookIdentity) error {
+type deleteBook struct{ books db.Repository }
+
+func NewDeleteBook(i do.Injector) (DeleteBook, error) {
+	return &deleteBook{books: do.MustInvoke[db.Repository](i)}, nil
+}
+
+func (s *deleteBook) Execute(ctx context.Context, actor dc.Actor, id dto.BookIdentity) error {
 	b, err := ac.FindRequired(func() (*db.Book, error) {
 		return s.books.FindByID(ctx, id.BookID)
 	})

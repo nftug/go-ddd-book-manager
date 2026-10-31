@@ -9,13 +9,17 @@ import (
 	"github.com/samber/do/v2"
 )
 
-type GetUserDetails struct{ query QueryService }
-
-func NewGetUserDetails(i do.Injector) (*GetUserDetails, error) {
-	return &GetUserDetails{query: do.MustInvoke[QueryService](i)}, nil
+type GetUserDetails interface {
+	Execute(ctx context.Context, actor dc.Actor) (dto.UserResponse, error)
 }
 
-func (s *GetUserDetails) Execute(ctx context.Context, actor dc.Actor) (dto.UserResponse, error) {
+type getUserDetails struct{ query QueryService }
+
+func NewGetUserDetails(i do.Injector) (GetUserDetails, error) {
+	return &getUserDetails{query: do.MustInvoke[QueryService](i)}, nil
+}
+
+func (s *getUserDetails) Execute(ctx context.Context, actor dc.Actor) (dto.UserResponse, error) {
 	u, err := ac.FindRequired(func() (*dto.UserResponse, error) {
 		return s.query.FindByID(ctx, actor.ID())
 	})

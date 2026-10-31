@@ -9,21 +9,28 @@ import (
 	"github.com/samber/do/v2"
 )
 
-type SyncUser struct {
+type SyncUser interface {
+	Execute(
+		ctx context.Context,
+		req dto.SyncUserRequest,
+	) (dto.UserResponse, error)
+}
+
+type syncUser struct {
 	repo  du.Repository
 	clock dc.Clock
 	ids   dc.UUIDGenerator
 }
 
-func NewSyncUser(i do.Injector) (*SyncUser, error) {
-	return &SyncUser{
+func NewSyncUser(i do.Injector) (SyncUser, error) {
+	return &syncUser{
 		repo:  do.MustInvoke[du.Repository](i),
 		clock: do.MustInvoke[dc.Clock](i),
 		ids:   do.MustInvoke[dc.UUIDGenerator](i),
 	}, nil
 }
 
-func (s *SyncUser) Execute(
+func (s *syncUser) Execute(
 	ctx context.Context,
 	req dto.SyncUserRequest,
 ) (dto.UserResponse, error) {

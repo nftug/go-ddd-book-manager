@@ -48,3 +48,5 @@ task migrate-down  # 最後に適用したマイグレーショングループ�
 ```sh
 task migrate-create -- add_example
 ```
+
+Web API の起動には `DATABASE_URL`、Keycloak の issuer を指定する `OIDC_ISSUER`、API 用 audience の `OIDC_AUDIENCE` が必要です。待受アドレスは `HTTP_ADDR`（省略時 `:8080`）で指定できます。Keycloak の RS256 Access Token を使用し、`realm_access.roles` に `Admin` があるユーザーを管理者として同期します。

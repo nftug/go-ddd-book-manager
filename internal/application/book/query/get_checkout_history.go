@@ -8,13 +8,22 @@ import (
 	dc "go-ddd-book-manager/internal/domain/common"
 )
 
-type GetCheckoutHistory struct{ q QueryService }
-
-func NewGetCheckoutHistory(i do.Injector) (*GetCheckoutHistory, error) {
-	return &GetCheckoutHistory{q: do.MustInvoke[QueryService](i)}, nil
+type GetCheckoutHistory interface {
+	Execute(
+		ctx context.Context,
+		actor dc.Actor,
+		id dto.BookIdentity,
+		p ac.Pagination,
+	) (dto.CheckoutPage, error)
 }
 
-func (s *GetCheckoutHistory) Execute(
+type getCheckoutHistory struct{ q QueryService }
+
+func NewGetCheckoutHistory(i do.Injector) (GetCheckoutHistory, error) {
+	return &getCheckoutHistory{q: do.MustInvoke[QueryService](i)}, nil
+}
+
+func (s *getCheckoutHistory) Execute(
 	ctx context.Context,
 	actor dc.Actor,
 	id dto.BookIdentity,

@@ -220,8 +220,8 @@ func newBookCommandService[T any](
 	books db.Repository,
 	users du.Repository,
 	ids dc.UUIDGenerator,
-	constructor func(do.Injector) (*T, error),
-) *T {
+	constructor func(do.Injector) (T, error),
+) T {
 	t.Helper()
 	injector := do.New()
 	do.ProvideValue[db.Repository](injector, books)
