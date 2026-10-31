@@ -1,3 +1,4 @@
+# Taskfile production binary: bin/go-ddd-book-manager
 bin/
 node_modules
 frontend/dist

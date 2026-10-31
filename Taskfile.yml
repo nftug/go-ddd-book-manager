@@ -1,0 +1,22 @@
+version: '3'
+
+tasks:
+  generate:
+    desc: Generate code with go generate directives
+    cmds:
+      - go generate ./...
+
+  run:
+    desc: Run the application
+    deps:
+      - generate
+    cmds:
+      - go run ./cmd
+
+  build:
+    desc: Build the production binary
+    deps:
+      - generate
+    cmds:
+      - mkdir -p bin
+      - go build -trimpath -ldflags="-s -w" -o bin/app ./cmd

@@ -1,15 +1,13 @@
 package common
 
+//go:generate go tool go-enum --noprefix
+
 import (
 	"uuid"
 )
 
+// ENUM(AdminRole="Admin", UserRole="User")
 type ActorRole string
-
-const (
-	AdminRole = ActorRole("Admin")
-	UserRole  = ActorRole("User")
-)
 
 type Actor struct {
 	id       uuid.UUID

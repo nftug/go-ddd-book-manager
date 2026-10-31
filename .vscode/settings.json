@@ -1,20 +1,24 @@
 {
   "[go]": {
-    "editor.formatOnSave": true,
-    "editor.defaultFormatter": "golang.go"
+    "editor.formatOnSave": false
   },
   "go.formatTool": "gofmt",
   "emeraldwalk.runonsave": {
     "commands": [
       {
         "match": "\\.go$",
-        "cmd": "go tool golines --base-formatter=gofmt -w ${file}"
+        "cmd": "go tool golines --base-formatter=gofmt -w \"${file}\""
+      },
+      {
+        "match": "\\.go$",
+        "cmd": "cd \"${fileDirname}\" && go generate \"${fileBasename}\"",
+        "autoShowOutputPanel": "error"
       }
     ]
   },
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
-    "*.go": "${capture}_test.go"
+    "*.go": "${capture}_test.go, ${capture}_gen.go, ${capture}_enum.go"
   }
 }
