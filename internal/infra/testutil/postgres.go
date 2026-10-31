@@ -5,14 +5,15 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"go-ddd-book-manager/internal/infra"
+	"go-ddd-book-manager/internal/infra/migrations"
+	"testing"
+
 	"github.com/ory/dockertest/v3"
 	"github.com/samber/do/v2"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/migrate"
-	"go-ddd-book-manager/internal/infra"
-	"go-ddd-book-manager/internal/infra/migrations"
-	"testing"
 )
 
 func NewPostgres(t *testing.T) (do.Injector, *bun.DB, *migrate.Migrator) {
@@ -34,7 +35,7 @@ func NewPostgres(t *testing.T) (do.Injector, *bun.DB, *migrate.Migrator) {
 		"postgres://test:test@localhost:%s/test?sslmode=disable",
 		resource.GetPort("5432/tcp"),
 	)
-	i := infra.NewInjector(do.New(), dsn)
+	i := infra.Inject(do.New(), dsn)
 	db := do.MustInvoke[*bun.DB](i)
 	t.Cleanup(func() { i.Shutdown() })
 	require.NoError(t, pool.Retry(func() error { return db.PingContext(ctx) }))

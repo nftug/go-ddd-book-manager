@@ -12,7 +12,7 @@ import (
 )
 
 func TestInfrastructureServices(t *testing.T) {
-	i := infra.NewInjector(do.New(), "postgres://unused:unused@localhost/unused?sslmode=disable")
+	i := infra.Inject(do.New(), "postgres://unused:unused@localhost/unused?sslmode=disable")
 
 	clock := do.MustInvoke[dc.Clock](i)
 	before := time.Now()
