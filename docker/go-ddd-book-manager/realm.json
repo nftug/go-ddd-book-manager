@@ -1,0 +1,52 @@
+{
+  "realm": "book-manager",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "Admin" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "book-manager-api",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "book-manager-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "book-manager-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "user",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Dummy",
+      "lastName": "User",
+      "email": "user@example.com",
+      "credentials": [{ "type": "password", "value": "password", "temporary": false }]
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Dummy",
+      "lastName": "Admin",
+      "email": "admin@example.com",
+      "realmRoles": ["Admin"],
+      "credentials": [{ "type": "password", "value": "password", "temporary": false }]
+    }
+  ]
+}

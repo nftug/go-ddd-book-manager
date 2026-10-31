@@ -50,3 +50,24 @@ task migrate-create -- add_example
 ```
 
 Web API の起動には `DATABASE_URL`、Keycloak の issuer を指定する `OIDC_ISSUER`、API 用 audience の `OIDC_AUDIENCE` が必要です。待受アドレスは `HTTP_ADDR`（省略時 `:8080`）で指定できます。Keycloak の RS256 Access Token を使用し、`realm_access.roles` に `Admin` があるユーザーを管理者として同期します。
+
+### 開発用 Keycloak
+
+Docker Compose の Keycloak は初回起動時に `docker/go-ddd-book-manager/realm.json` をインポートします。開発用の realm は `book-manager`、API の audience とトークン取得用 client ID は `book-manager-api` です。`OIDC_ISSUER` には `http://localhost:<KEYCLOAK_PORT_OUTER>/realms/book-manager`、`OIDC_AUDIENCE` には `book-manager-api` を設定してください。
+
+| ユーザー名 | パスワード | 権限 |
+| --- | --- | --- |
+| `user` | `password` | 通常ユーザー |
+| `admin` | `password` | 管理者（realm role `Admin`） |
+
+どちらも開発専用のアカウントです。たとえば次のコマンドでアクセストークンを取得できます。
+
+```sh
+curl -X POST "http://localhost:${KEYCLOAK_PORT_OUTER}/realms/book-manager/protocol/openid-connect/token" \
+  -d 'client_id=book-manager-api' \
+  -d 'grant_type=password' \
+  -d 'username=user' \
+  -d 'password=password'
+```
+
+Keycloak は既に存在する realm を起動時インポートで上書きしません。`realm.json` の変更を既存環境に反映するには、必要なデータを退避したうえで Keycloak の管理画面から該当 realm を削除し、Keycloak を再起動してください。

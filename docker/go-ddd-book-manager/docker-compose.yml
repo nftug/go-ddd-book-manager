@@ -19,11 +19,12 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
       KC_HOSTNAME: localhost
-    command: ["start-dev"]
+    command: ["start-dev", "--import-realm"]
     ports:
       - "${KEYCLOAK_PORT_OUTER}:8080"
     volumes:
       - keycloak_data:/opt/keycloak/data
+      - ./realm.json:/opt/keycloak/data/import/realm.json:ro
 
 volumes:
   db_data:
