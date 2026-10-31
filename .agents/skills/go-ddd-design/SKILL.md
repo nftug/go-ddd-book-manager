@@ -38,6 +38,8 @@ description: このリポジトリでGoによるDDD設計・実装・レビュ�
 
 ## 共通Go規則
 
+### 命名規則
+
 Goの命名規則に従う。
 
 - `ID`, `UUID`, `URL` を使う
@@ -45,7 +47,48 @@ Goの命名規則に従う。
 - getterに `Get` を付けない
 - interfaceに `IRepository` のような `I` prefixを付けない
 
+### interfaceと依存
+
 interfaceは利用側のpackageで定義し、小さく保つ。
+
+### 依存性注入
+
+依存性注入には `github.com/samber/do/v2` を使用する。
+
+依存の登録・解決はcomposition boundaryにまとめ、既存の `internal/infra/injector.go` を参考にする。
+
+providerで解決した依存を各コンポーネントに渡し、業務処理中にcontainerから依存を取得しない。Domain objectにcontainerを持ち込まない。
+
+interfaceを通して利用する依存は、そのinterface型で登録・解決する。injectorを作成した呼び出し元は、終了時に `Shutdown()` を呼ぶ。
+
+例えば、Serviceを構築するコンストラクタは下記のように書く。
+
+```go
+// Repositoryのproviderは利用側のinterfaceを返す。
+func NewRepository(i do.Injector) (book.Repository, error) {
+	db := do.MustInvoke[*bun.DB](i)
+	return &repository{db: db}, nil
+}
+
+// Serviceのproviderで依存を解決し、constructorに渡す。
+func NewService(i do.Injector) (*Service, error) {
+	repo := do.MustInvoke[book.Repository](i)
+	return NewService(repo), nil
+}
+```
+
+サービスを置いた各レイヤーのパッケージのルートに `injector.go` を置いて、次のように実装する。
+
+```go
+func Inject(i do.Injector) do.Injector {
+  do.Provide(i, NewRepository)
+  do.Provide(i, NewService)
+}
+```
+
+DIコンテナの構築時は、各レイヤーのルートパッケージにある `Inject` メソッドを呼び出す。
+
+### その他
 
 `samber/lo` は処理が明確になる場合に使用してよいが、通常のloopの方が明快ならloopを使う。
 
