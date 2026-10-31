@@ -8,11 +8,12 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/samber/do/v2"
 	"go-ddd-book-manager/internal/common/option"
 	"go-ddd-book-manager/internal/domain/common"
 	"go-ddd-book-manager/internal/domain/user"
 	"go-ddd-book-manager/internal/infra/testutil"
+
+	"github.com/samber/do/v2"
 
 	"github.com/stretchr/testify/require"
 )
@@ -59,5 +60,11 @@ func TestRepository(t *testing.T) {
 		gotUser, err := users.FindByID(ctx, userID)
 		require.NoError(t, err)
 		require.Equal(t, updated, *gotUser)
+	})
+	t.Run("delete user", func(t *testing.T) {
+		require.NoError(t, users.Delete(ctx, userID))
+		require.NoError(t, users.Delete(ctx, userID))
+		_, err := users.FindByID(ctx, userID)
+		require.NoError(t, err)
 	})
 }

@@ -47,3 +47,8 @@ func (r *repository) Save(ctx context.Context, u domain.User) error {
 		Exec(ctx)
 	return err
 }
+
+func (r *repository) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.NewDelete().Model((*model)(nil)).Where("id = ?", id).Exec(ctx)
+	return err
+}
