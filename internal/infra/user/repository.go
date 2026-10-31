@@ -6,7 +6,6 @@ import (
 	"errors"
 	"uuid"
 
-	dc "go-ddd-book-manager/internal/domain/common"
 	domain "go-ddd-book-manager/internal/domain/user"
 	ic "go-ddd-book-manager/internal/infra/common"
 
@@ -27,7 +26,7 @@ func (r *repository) FindByID(ctx context.Context, id uuid.UUID) (*domain.User, 
 	var m model
 	err := r.db.NewSelect().Model(&m).Where("id = ?", id).Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, dc.ErrNotFound
+		return nil, nil
 	}
 	if err != nil {
 		return nil, err

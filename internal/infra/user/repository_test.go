@@ -40,8 +40,9 @@ func TestRepository(t *testing.T) {
 	require.NoError(t, err)
 
 	if !t.Run("find missing user", func(t *testing.T) {
-		_, err := users.FindByID(ctx, uuid.NewV7())
-		require.ErrorIs(t, err, common.ErrNotFound)
+		got, err := users.FindByID(ctx, uuid.NewV7())
+		require.NoError(t, err)
+		require.Nil(t, got)
 	}) {
 		return
 	}

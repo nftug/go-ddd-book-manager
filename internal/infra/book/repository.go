@@ -7,7 +7,6 @@ import (
 	"uuid"
 
 	domain "go-ddd-book-manager/internal/domain/book"
-	dc "go-ddd-book-manager/internal/domain/common"
 	ic "go-ddd-book-manager/internal/infra/common"
 
 	"github.com/samber/do/v2"
@@ -41,7 +40,7 @@ func (r *repository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Book, 
 				Where("id = ?", id).
 				Scan(ctx)
 			if errors.Is(err, sql.ErrNoRows) {
-				return dc.ErrNotFound
+				return nil
 			}
 			if err != nil {
 				return err

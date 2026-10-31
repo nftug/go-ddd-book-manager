@@ -46,8 +46,9 @@ func TestRepository(t *testing.T) {
 		[]book.Checkout{checkout},
 	)
 	if !t.Run("find missing book", func(t *testing.T) {
-		_, err := books.FindByID(ctx, uuid.NewV7())
-		require.ErrorIs(t, err, common.ErrNotFound)
+		got, err := books.FindByID(ctx, uuid.NewV7())
+		require.NoError(t, err)
+		require.Nil(t, got)
 	}) {
 		return
 	}
@@ -99,6 +100,6 @@ func TestRepository(t *testing.T) {
 		require.NoError(t, books.Delete(ctx, bookID))
 		require.NoError(t, books.Delete(ctx, bookID))
 		_, err := books.FindByID(ctx, bookID)
-		require.ErrorIs(t, err, common.ErrNotFound)
+		require.NoError(t, err)
 	})
 }

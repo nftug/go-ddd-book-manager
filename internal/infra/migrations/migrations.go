@@ -2,6 +2,7 @@ package migrations
 
 import (
 	"embed"
+
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/migrate"
 )
@@ -10,7 +11,7 @@ import (
 var files embed.FS
 
 func New(db *bun.DB) (*migrate.Migrator, error) {
-	m := migrate.NewMigrations(migrate.WithMigrationsDirectory("internal/infra/migrations"))
+	m := migrate.NewMigrations()
 	if err := m.Discover(files); err != nil {
 		return nil, err
 	}
