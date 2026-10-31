@@ -4,35 +4,31 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go-ddd-book-manager/internal/domain/user"
 )
 
 func TestNameAndEmailConstructorsAndRestoreFunctions(t *testing.T) {
 	name, err := user.NewName("Aki")
-	if err != nil || name.Value() != "Aki" {
-		t.Fatalf("NewName got (%q, %v), want (Aki, nil)", name.Value(), err)
-	}
-	if got := user.RestoreName("Restored").Value(); got != "Restored" {
-		t.Fatalf("RestoreName got %q, want Restored", got)
-	}
+	require.NoError(t, err)
+
+	assert.Equal(t, "Aki", name.Value())
+	assert.Equal(t, "Restored", user.RestoreName("Restored").Value())
 
 	email, err := user.NewEmail("aki@example.com")
-	if err != nil || email.Value() != "aki@example.com" {
-		t.Fatalf("NewEmail got (%q, %v), want (aki@example.com, nil)", email.Value(), err)
-	}
-	if got := user.RestoreEmail("restored@example.com").Value(); got != "restored@example.com" {
-		t.Fatalf("RestoreEmail got %q, want restored@example.com", got)
-	}
+	require.NoError(t, err)
+
+	assert.Equal(t, "aki@example.com", email.Value())
+	assert.Equal(t, "restored@example.com", user.RestoreEmail("restored@example.com").Value())
 }
 
 func TestNameAndEmailValidation(t *testing.T) {
-	if _, err := user.NewName(""); err == nil {
-		t.Fatal("empty name should fail validation")
-	}
-	if _, err := user.NewName(strings.Repeat("a", 101)); err == nil {
-		t.Fatal("name longer than 100 characters should fail validation")
-	}
-	if _, err := user.NewEmail("invalid"); err == nil {
-		t.Fatal("invalid email should fail validation")
-	}
+	_, emptyNameErr := user.NewName("")
+	_, longNameErr := user.NewName(strings.Repeat("a", 101))
+	_, invalidEmailErr := user.NewEmail("invalid")
+
+	assert.Error(t, emptyNameErr)
+	assert.Error(t, longNameErr)
+	assert.Error(t, invalidEmailErr)
 }

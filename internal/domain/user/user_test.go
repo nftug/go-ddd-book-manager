@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go-ddd-book-manager/internal/domain/common"
 	"go-ddd-book-manager/internal/domain/user"
 	"uuid"
@@ -19,77 +21,78 @@ func (testIDs) NewUUIDv7() uuid.UUID { return uuid.NewV7() }
 
 func TestSyncOnlyUpdatesAuditWhenProfileChanges(t *testing.T) {
 	id := uuid.NewV4()
-	name, _ := user.NewName("Aki")
-	email, _ := user.NewEmail("aki@example.com")
+	name, err := user.NewName("Aki")
+	require.NoError(t, err)
+	email, err := user.NewEmail("aki@example.com")
+	require.NoError(t, err)
 	ctx := common.NewDomainContext(
 		common.NewActor(id, "Aki", common.UserRole),
 		testIDs{},
 		testClock{time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
 	)
-	u, err := user.New(ctx, id, name, email, common.UserRole)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if u.Name() != name.Value() || u.Email() != email.Value() {
-		t.Fatal("user getters should return scalar name and email values")
-	}
-	if err := u.Sync(ctx, name, email, common.UserRole); err != nil {
-		t.Fatal(err)
-	}
-	if u.Audit().Updated().IsSome() {
-		t.Fatal("unchanged profile must not update audit")
-	}
 
-	changedName, _ := user.NewName("Aki Tanaka")
-	if err := u.Sync(ctx, changedName, email, common.UserRole); err != nil {
-		t.Fatal(err)
-	}
-	if u.Name() != changedName.Value() || u.Audit().Updated().IsNone() {
-		t.Fatal("changed profile must update user and audit")
-	}
+	u, err := user.New(ctx, id, name, email, common.UserRole)
+	require.NoError(t, err)
+
+	assert.Equal(t, name.Value(), u.Name())
+	assert.Equal(t, email.Value(), u.Email())
+
+	require.NoError(t, u.Sync(ctx, name, email, common.UserRole))
+	assert.True(t, u.Audit().Updated().IsNone())
+
+	changedName, err := user.NewName("Aki Tanaka")
+	require.NoError(t, err)
+
+	require.NoError(t, u.Sync(ctx, changedName, email, common.UserRole))
+
+	assert.Equal(t, changedName.Value(), u.Name())
+	assert.True(t, u.Audit().Updated().IsSome())
 }
 
 func TestSyncRejectsDifferentUser(t *testing.T) {
 	id := uuid.NewV4()
-	name, _ := user.NewName("Aki")
-	email, _ := user.NewEmail("aki@example.com")
+	name, err := user.NewName("Aki")
+	require.NoError(t, err)
+	email, err := user.NewEmail("aki@example.com")
+	require.NoError(t, err)
 	ctx := common.NewDomainContext(
 		common.NewActor(id, "Aki", common.UserRole),
 		testIDs{},
 		testClock{time.Now()},
 	)
+
 	u, err := user.New(ctx, uuid.NewV4(), name, email, common.UserRole)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := u.Sync(ctx, name, email, common.AdminRole); err != common.ErrForbidden {
-		t.Fatalf("got %v, want forbidden", err)
-	}
-	if u.Role() != common.UserRole || u.Audit().Updated().IsSome() {
-		t.Fatal("rejected sync must leave user unchanged")
-	}
+	require.NoError(t, err)
+
+	require.ErrorIs(t, u.Sync(ctx, name, email, common.AdminRole), common.ErrForbidden)
+
+	assert.Equal(t, common.UserRole, u.Role())
+	assert.True(t, u.Audit().Updated().IsNone())
 }
 
 func TestSystemActorUsesZeroUUIDAndCanSync(t *testing.T) {
-	name, _ := user.NewName("Aki")
-	email, _ := user.NewEmail("aki@example.com")
+	name, err := user.NewName("Aki")
+	require.NoError(t, err)
+	email, err := user.NewEmail("aki@example.com")
+	require.NoError(t, err)
 	ctx := common.NewDomainContext(common.NewSystemActor(), testIDs{}, testClock{time.Now()})
+
 	u, err := user.New(ctx, uuid.NewV4(), name, email, common.UserRole)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ctx.Actor().ID() != uuid.Nil() || ctx.Actor().UserName() != "System" {
-		t.Fatal("system audit identity must use zero UUID and System name")
-	}
-	changed, _ := user.NewName("Aki Updated")
-	if err := u.Sync(ctx, changed, email, common.AdminRole); err != nil {
-		t.Fatal(err)
-	}
-	if u.Name() != changed.Value() || u.Role() != common.AdminRole {
-		t.Fatal("system sync should apply authoritative profile")
-	}
+	require.NoError(t, err)
+
+	assert.Equal(t, uuid.Nil(), ctx.Actor().ID())
+	assert.Equal(t, "System", ctx.Actor().UserName())
+
+	changed, err := user.NewName("Aki Updated")
+	require.NoError(t, err)
+	require.NoError(t, u.Sync(ctx, changed, email, common.AdminRole))
+
+	assert.Equal(t, changed.Value(), u.Name())
+	assert.Equal(t, common.AdminRole, u.Role())
+
 	updated, ok := u.Audit().Updated().Get()
-	if !ok || updated.UserID() != uuid.Nil() || updated.UserName() != "System" {
-		t.Fatal("sync audit should identify System")
-	}
+	require.True(t, ok)
+
+	assert.Equal(t, uuid.Nil(), updated.UserID())
+	assert.Equal(t, "System", updated.UserName())
 }

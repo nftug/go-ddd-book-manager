@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"go-ddd-book-manager/internal/common/option"
 	"go-ddd-book-manager/internal/domain/book"
 	"go-ddd-book-manager/internal/domain/common"
@@ -22,30 +23,19 @@ func TestCheckoutReturnAndRecheckoutDoNotUpdateEntityAudit(t *testing.T) {
 	owner := user.RestoreReference(userID, "Aki")
 	b := newBook(t, ctx, owner)
 	created := b.Audit().Created()
-	if err := b.Checkout(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if !b.IsCheckedOut() {
-		t.Fatal("book should be checked out")
-	}
-	if err := b.Checkout(ctx); err == nil {
-		t.Fatal("second active checkout should fail")
-	}
-	if err := b.Return(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if b.IsCheckedOut() {
-		t.Fatal("book should no longer be checked out")
-	}
-	if err := b.Checkout(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if got := len(b.Checkouts()); got != 2 {
-		t.Fatalf("got %d checkout records, want 2", got)
-	}
-	if b.Audit().Created() != created || b.Audit().Updated().IsSome() {
-		t.Fatal("checkout flow must not update entity audit")
-	}
+
+	require.NoError(t, b.Checkout(ctx))
+	require.True(t, b.IsCheckedOut())
+
+	requireValidationError(t, b.Checkout(ctx), "book.checkout", "already_active")
+	require.NoError(t, b.Return(ctx))
+	require.False(t, b.IsCheckedOut())
+
+	require.NoError(t, b.Checkout(ctx))
+
+	require.Len(t, b.Checkouts(), 2)
+	require.Equal(t, created, b.Audit().Created())
+	require.True(t, b.Audit().Updated().IsNone())
 }
 
 func TestCheckoutRejectsSystemAndDeleteAllowsCheckedOutBook(t *testing.T) {
@@ -58,15 +48,11 @@ func TestCheckoutRejectsSystemAndDeleteAllowsCheckedOutBook(t *testing.T) {
 	)
 	b := newBook(t, ownerCtx, owner)
 	systemCtx := common.NewDomainContext(common.NewSystemActor(), testIDs{}, testClock{now})
-	if err := b.Checkout(systemCtx); err != common.ErrForbidden {
-		t.Fatalf("system checkout got %v, want forbidden", err)
-	}
-	if err := b.Checkout(ownerCtx); err != nil {
-		t.Fatal(err)
-	}
-	if err := b.ValidateDeletion(ownerCtx.Actor()); err != nil {
-		t.Fatalf("checked-out book should be deletable by owner: %v", err)
-	}
+
+	require.ErrorIs(t, b.Checkout(systemCtx), common.ErrForbidden)
+
+	require.NoError(t, b.Checkout(ownerCtx))
+	require.NoError(t, b.ValidateDeletion(ownerCtx.Actor()))
 }
 
 func TestRestoreCheckoutNormalizesTimestamps(t *testing.T) {
@@ -78,13 +64,11 @@ func TestRestoreCheckoutNormalizesTimestamps(t *testing.T) {
 		checkedOutAt,
 		option.Some(returnedAt),
 	)
-	if checkout.CheckedOutAt().Location() != time.UTC {
-		t.Fatal("checked-out timestamp should be normalized to UTC")
-	}
+
+	require.Equal(t, time.UTC, checkout.CheckedOutAt().Location())
 	gotReturnedAt, ok := checkout.ReturnedAt().Get()
-	if !ok || gotReturnedAt.Location() != time.UTC {
-		t.Fatal("returned timestamp should be normalized to UTC")
-	}
+	require.True(t, ok)
+	require.Equal(t, time.UTC, gotReturnedAt.Location())
 }
 
 func TestReturnRequiresAnActiveCheckout(t *testing.T) {
@@ -97,14 +81,12 @@ func TestReturnRequiresAnActiveCheckout(t *testing.T) {
 	)
 	b := newBook(t, ctx, owner)
 
-	assertValidationCode(t, b.Return(ctx), "not_active")
-	if err := b.Checkout(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if err := b.Return(ctx); err != nil {
-		t.Fatal(err)
-	}
-	assertValidationCode(t, b.Return(ctx), "already_returned")
+	requireValidationError(t, b.Return(ctx), "book.checkout", "not_active")
+
+	require.NoError(t, b.Checkout(ctx))
+	require.NoError(t, b.Return(ctx))
+
+	requireValidationError(t, b.Return(ctx), "book.checkout", "already_returned")
 }
 
 func TestReturnAllowsOnlyCheckoutOwnerOrAdmin(t *testing.T) {
@@ -116,9 +98,8 @@ func TestReturnAllowsOnlyCheckoutOwnerOrAdmin(t *testing.T) {
 		testClock{now},
 	)
 	b := newBook(t, ownerCtx, owner)
-	if err := b.Checkout(ownerCtx); err != nil {
-		t.Fatal(err)
-	}
+
+	require.NoError(t, b.Checkout(ownerCtx))
 
 	otherID := uuid.NewV4()
 	otherCtx := common.NewDomainContext(
@@ -126,24 +107,16 @@ func TestReturnAllowsOnlyCheckoutOwnerOrAdmin(t *testing.T) {
 		testIDs{},
 		testClock{now},
 	)
-	if err := b.Return(otherCtx); err != common.ErrForbidden {
-		t.Fatalf("return by another user got %v, want forbidden", err)
-	}
-	if !b.IsCheckedOut() {
-		t.Fatal("failed return should leave book checked out")
-	}
+	require.ErrorIs(t, b.Return(otherCtx), common.ErrForbidden)
+	require.True(t, b.IsCheckedOut())
 
 	adminCtx := common.NewDomainContext(
 		common.NewActor(uuid.NewV4(), "Admin", common.AdminRole),
 		testIDs{},
 		testClock{now.Add(time.Hour)},
 	)
-	if err := b.Return(adminCtx); err != nil {
-		t.Fatalf("return by admin got %v, want nil", err)
-	}
-	if b.IsCheckedOut() {
-		t.Fatal("successful admin return should close the checkout")
-	}
+	require.NoError(t, b.Return(adminCtx))
+	require.False(t, b.IsCheckedOut())
 }
 
 func TestRestoreCheckoutListUsesLatestCheckoutAndReturnsCopies(t *testing.T) {
@@ -161,17 +134,11 @@ func TestRestoreCheckoutListUsesLatestCheckoutAndReturnsCopies(t *testing.T) {
 	)
 	input := []book.Checkout{activeCheckout, latestCheckout}
 	list := book.RestoreCheckoutList(input)
-	if list.IsCheckedOut() {
-		t.Fatal("a returned latest checkout should make the list inactive")
-	}
+	require.False(t, list.IsCheckedOut())
 
 	input[1] = activeCheckout
-	if list.IsCheckedOut() {
-		t.Fatal("mutating restore input should not change the checkout list")
-	}
+	require.False(t, list.IsCheckedOut())
 	values := list.Values()
 	values[1] = activeCheckout
-	if list.IsCheckedOut() {
-		t.Fatal("mutating returned values should not change the checkout list")
-	}
+	require.False(t, list.IsCheckedOut())
 }
