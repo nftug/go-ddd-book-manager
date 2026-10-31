@@ -4,9 +4,10 @@ import (
 	"database/sql"
 	"errors"
 
+	domain "go-ddd-book-manager/internal/domain/common"
+
 	"github.com/jackc/pgerrcode"
 	"github.com/uptrace/bun/driver/pgdriver"
-	domain "go-ddd-book-manager/internal/domain/common"
 )
 
 // ValidateNoConflict returns the domain conflict error when no rows were affected.
@@ -25,6 +26,13 @@ func ConflictOnDuplicate(err error) error {
 	var pg pgdriver.Error
 	if errors.As(err, &pg) && pg.Field('C') == pgerrcode.UniqueViolation {
 		return domain.ErrConflict
+	}
+	return err
+}
+
+func IgnoreNoRows(err error) error {
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
 	}
 	return err
 }

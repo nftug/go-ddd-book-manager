@@ -2,8 +2,6 @@ package user
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	domain "go-ddd-book-manager/internal/domain/user"
 	"go-ddd-book-manager/internal/infra/database"
 	"uuid"
@@ -23,11 +21,8 @@ var _ domain.Repository = (*repository)(nil)
 func (r *repository) FindByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	var m model
 	err := r.db.NewSelect().Model(&m).Where("id = ?", id).Scan(ctx)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
 	if err != nil {
-		return nil, err
+		return nil, database.IgnoreNoRows(err)
 	}
 	u, err := m.toDomain()
 	if err != nil {

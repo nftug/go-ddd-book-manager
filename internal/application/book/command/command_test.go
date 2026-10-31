@@ -115,7 +115,7 @@ func TestCreateBook(t *testing.T) {
 		repo.On("Create", mock.Anything, mock.MatchedBy(func(b db.Book) bool { return b.Owner().ID() == ownerID })).
 			Return(nil).
 			Once()
-		id, err := newBookCommandService(
+		res, err := newBookCommandService(
 			t,
 			repo,
 			&userRepositoryMock{},
@@ -124,7 +124,7 @@ func TestCreateBook(t *testing.T) {
 		).
 			Execute(context.Background(), actor, request)
 		require.NoError(t, err)
-		require.Equal(t, bookID, id)
+		require.Equal(t, bookID, res.ID)
 		repo.AssertExpectations(t)
 	})
 }
@@ -142,7 +142,7 @@ func TestDeleteBookReturnsNotFoundWhenAbsent(t *testing.T) {
 	).
 		Execute(context.Background(), actor, dto.BookIdentity{BookID: uuid.NewV7()})
 	require.ErrorIs(t, err, dc.ErrNotFound)
-	repo.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything, mock.Anything)
+	repo.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything)
 	repo.AssertExpectations(t)
 }
 
@@ -183,11 +183,12 @@ func TestChangeOwnerRejectsMissingUserWithoutSaving(t *testing.T) {
 		fixedIDGenerator{uuid.NewV7()},
 		command.NewChangeOwner,
 	).
-		Execute(context.Background(), admin, dto.BookIdentity{BookID: id}, uuid.NewV7())
+		Execute(context.Background(), admin, dto.BookIdentity{BookID: id}, dto.OwnerChangeRequest{OwnerID: uuid.NewV7()})
 	var validation *dc.ValidationError
 	require.ErrorAs(t, err, &validation)
 	require.Equal(t, "book.owner_id", validation.Field())
 	require.Equal(t, "not_found", validation.Code())
+	require.ErrorIs(t, err, command.OwnerNotFoundErr)
 	userRepo.AssertExpectations(t)
 	repo.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
 	repo.AssertExpectations(t)

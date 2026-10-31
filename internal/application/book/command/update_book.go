@@ -2,12 +2,13 @@ package command
 
 import (
 	"context"
-	"github.com/samber/do/v2"
 	dto "go-ddd-book-manager/internal/application/book/dto"
 	ac "go-ddd-book-manager/internal/application/common"
 	"go-ddd-book-manager/internal/common/option"
 	db "go-ddd-book-manager/internal/domain/book"
 	dc "go-ddd-book-manager/internal/domain/common"
+
+	"github.com/samber/do/v2"
 )
 
 type UpdateBook struct {
@@ -28,7 +29,7 @@ func (s *UpdateBook) Execute(
 	ctx context.Context,
 	actor dc.Actor,
 	id dto.BookIdentity,
-	r dto.BookRequest,
+	req dto.BookRequest,
 ) error {
 	b, err := ac.FindRequired(func() (*db.Book, error) {
 		return s.books.FindByID(ctx, id.BookID)
@@ -38,10 +39,10 @@ func (s *UpdateBook) Execute(
 	}
 	if err = b.Update(
 		dc.NewDomainContext(actor, s.ids, s.clock),
-		r.Title,
-		r.Authors,
-		option.New(r.ISBN),
-		option.New(r.Description),
+		req.Title,
+		req.Authors,
+		option.New(req.ISBN),
+		option.New(req.Description),
 	); err != nil {
 		return err
 	}

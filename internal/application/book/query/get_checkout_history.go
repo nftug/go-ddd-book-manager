@@ -27,5 +27,11 @@ func (s *GetCheckoutHistory) Execute(
 	if err != nil {
 		return dto.CheckoutPage{}, err
 	}
-	return s.q.Checkouts(ctx, id.BookID, p)
+	page, err := ac.FindRequired(func() (*dto.CheckoutPage, error) {
+		return s.q.Checkouts(ctx, id.BookID, p)
+	})
+	if err != nil {
+		return dto.CheckoutPage{}, err
+	}
+	return *page, nil
 }

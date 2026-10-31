@@ -43,9 +43,12 @@ func (m *bookQueryMock) Checkouts(
 	ctx context.Context,
 	id uuid.UUID,
 	p ac.Pagination,
-) (dto.CheckoutPage, error) {
+) (*dto.CheckoutPage, error) {
 	args := m.Called(ctx, id, p)
-	return args.Get(0).(dto.CheckoutPage), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.CheckoutPage), args.Error(1)
 }
 
 func TestGetBookList(t *testing.T) {
@@ -125,10 +128,22 @@ func TestGetCheckoutHistory(t *testing.T) {
 			mock.Anything,
 		)
 	})
-	t.Run("admin receives an empty page for missing book", func(t *testing.T) {
+	t.Run("missing book returns not found", func(t *testing.T) {
+		service := &bookQueryMock{}
+		actor := dc.NewActor(uuid.NewV7(), "admin", dc.AdminRole)
+		id := uuid.NewV7()
+		service.On("Checkouts", mock.Anything, id, ac.Pagination{Page: 1, PageSize: 10}).
+			Return(nil, nil).
+			Once()
+		_, err := newBookQueryService(t, service, q.NewGetCheckoutHistory).
+			Execute(context.Background(), actor, dto.BookIdentity{BookID: id}, ac.Pagination{})
+		require.ErrorIs(t, err, dc.ErrNotFound)
+		service.AssertExpectations(t)
+	})
+	t.Run("admin receives an empty page for a book without history", func(t *testing.T) {
 		service := &bookQueryMock{}
 		service.On("Checkouts", mock.Anything, mock.Anything, ac.Pagination{Page: 1, PageSize: 10}).
-			Return(dto.CheckoutPage{Items: []dto.CheckoutResponse{}, Page: 1, PageSize: 10}, nil).
+			Return(&dto.CheckoutPage{Items: []dto.CheckoutResponse{}, Page: 1, PageSize: 10}, nil).
 			Once()
 		actor := dc.NewActor(uuid.NewV7(), "admin", dc.AdminRole)
 		page, err := newBookQueryService(t, service, q.NewGetCheckoutHistory).
@@ -151,13 +166,25 @@ func TestGetCheckoutHistory(t *testing.T) {
 			PageSize: 3,
 		}
 		service.On("Checkouts", mock.Anything, mock.Anything, pagination).
-			Return(want, nil).
+			Return(&want, nil).
 			Once()
 		actor := dc.NewActor(uuid.NewV7(), "admin", dc.AdminRole)
 		page, err := newBookQueryService(t, service, q.NewGetCheckoutHistory).
 			Execute(context.Background(), actor, dto.BookIdentity{}, pagination)
 		require.NoError(t, err)
 		require.Equal(t, want, page)
+		service.AssertExpectations(t)
+	})
+	t.Run("checkout query error is preserved", func(t *testing.T) {
+		service := &bookQueryMock{}
+		failure := errors.New("checkout query failed")
+		service.On("Checkouts", mock.Anything, mock.Anything, mock.Anything).
+			Return(nil, failure).
+			Once()
+		actor := dc.NewActor(uuid.NewV7(), "admin", dc.AdminRole)
+		_, err := newBookQueryService(t, service, q.NewGetCheckoutHistory).
+			Execute(context.Background(), actor, dto.BookIdentity{}, ac.Pagination{})
+		require.ErrorIs(t, err, failure)
 		service.AssertExpectations(t)
 	})
 	t.Run("overflow is rejected before querying", func(t *testing.T) {

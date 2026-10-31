@@ -8,7 +8,7 @@ import (
 var (
 	ErrForbidden = errors.New("forbidden")
 	ErrNotFound  = errors.New("not found")
-	ErrConflict  = errors.New("concurrent modification")
+	ErrConflict  = errors.New("conflict")
 )
 
 type ValidationError struct {

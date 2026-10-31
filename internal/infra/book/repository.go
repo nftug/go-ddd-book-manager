@@ -3,7 +3,6 @@ package book
 import (
 	"context"
 	"database/sql"
-	"errors"
 	domain "go-ddd-book-manager/internal/domain/book"
 	"go-ddd-book-manager/internal/infra/database"
 	"uuid"
@@ -28,11 +27,8 @@ func (r *repository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Book, 
 		func(ctx context.Context, tx bun.Tx) error {
 			var m model
 			err := relations(tx.NewSelect().Model(&m)).Where("id = ?", id).Scan(ctx)
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil
-			}
 			if err != nil {
-				return err
+				return database.IgnoreNoRows(err)
 			}
 			b, err := m.toDomain()
 			if err != nil {

@@ -12,5 +12,5 @@ type QueryService interface {
 	FindByID(context.Context, dc.Actor, uuid.UUID) (*dto.BookResponse, error)
 	// List and Checkouts require normalized pagination.
 	List(context.Context, dc.Actor, dto.BookQuery) (dto.BookPage, error)
-	Checkouts(context.Context, uuid.UUID, ac.Pagination) (dto.CheckoutPage, error)
+	Checkouts(context.Context, uuid.UUID, ac.Pagination) (*dto.CheckoutPage, error)
 }

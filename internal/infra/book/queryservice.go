@@ -3,12 +3,10 @@ package book
 import (
 	"context"
 	"database/sql"
-	"errors"
 	dto "go-ddd-book-manager/internal/application/book/dto"
 	aq "go-ddd-book-manager/internal/application/book/query"
 	ac "go-ddd-book-manager/internal/application/common"
 	dc "go-ddd-book-manager/internal/domain/common"
-	infracommon "go-ddd-book-manager/internal/infra/common"
 	"go-ddd-book-manager/internal/infra/database"
 	"uuid"
 
@@ -35,11 +33,8 @@ func (s *queryService) FindByID(
 		func(ctx context.Context, tx bun.Tx) error {
 			var m model
 			err := relations(tx.NewSelect().Model(&m)).Where("id = ?", id).Scan(ctx)
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil
-			}
 			if err != nil {
-				return err
+				return database.IgnoreNoRows(err)
 			}
 			b := m.toResponse(actor)
 			out = &b
@@ -69,7 +64,7 @@ func (s *queryService) List(
 				filterBooks(tx.NewSelect().Model(&rows), f),
 			).OrderExpr("model.created_at DESC, model.id ASC").
 				Limit(f.Pagination.PageSize).
-				Offset(infracommon.PaginationOffset(f.Pagination)).
+				Offset(f.Pagination.Offset()).
 				Scan(ctx); err != nil {
 				return err
 			}
@@ -107,13 +102,17 @@ func (s *queryService) Checkouts(
 	ctx context.Context,
 	id uuid.UUID,
 	p ac.Pagination,
-) (dto.CheckoutPage, error) {
-	page := dto.CheckoutPage{Page: p.Page, PageSize: p.PageSize}
+) (*dto.CheckoutPage, error) {
+	var page *dto.CheckoutPage
 	if err := s.db.RunInTx(
 		ctx,
 		&sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead},
 		func(ctx context.Context, tx bun.Tx) error {
-			var err error
+			exists, err := tx.NewSelect().Model((*model)(nil)).Where("id = ?", id).Exists(ctx)
+			if err != nil || !exists {
+				return err
+			}
+			page = &dto.CheckoutPage{Page: p.Page, PageSize: p.PageSize}
 			page.Total, err = tx.NewSelect().
 				Model((*checkoutModel)(nil)).
 				Where("book_id = ?", id).
@@ -126,7 +125,7 @@ func (s *queryService) Checkouts(
 				Model(&rows).
 				Where("book_id = ?", id).
 				OrderExpr("checked_out_at DESC, id ASC").
-				Offset(infracommon.PaginationOffset(p)).
+				Offset(p.Offset()).
 				Limit(p.PageSize).
 				Scan(ctx); err != nil {
 				return err
@@ -137,7 +136,7 @@ func (s *queryService) Checkouts(
 			return nil
 		},
 	); err != nil {
-		return dto.CheckoutPage{}, err
+		return nil, err
 	}
 	return page, nil
 }

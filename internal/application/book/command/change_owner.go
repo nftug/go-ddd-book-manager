@@ -7,7 +7,6 @@ import (
 	db "go-ddd-book-manager/internal/domain/book"
 	dc "go-ddd-book-manager/internal/domain/common"
 	du "go-ddd-book-manager/internal/domain/user"
-	"uuid"
 
 	"github.com/samber/do/v2"
 )
@@ -32,7 +31,7 @@ func (s *ChangeOwner) Execute(
 	ctx context.Context,
 	actor dc.Actor,
 	id dto.BookIdentity,
-	ownerID uuid.UUID,
+	req dto.OwnerChangeRequest,
 ) error {
 	b, err := ac.FindRequired(func() (*db.Book, error) {
 		return s.books.FindByID(ctx, id.BookID)
@@ -41,12 +40,12 @@ func (s *ChangeOwner) Execute(
 		return err
 	}
 
-	u, err := s.users.FindByID(ctx, ownerID)
+	u, err := s.users.FindByID(ctx, req.OwnerID)
 	if err != nil {
 		return err
 	}
 	if u == nil {
-		return db.OwnerNotFoundErr
+		return OwnerNotFoundErr
 	}
 
 	if err = b.ChangeOwner(

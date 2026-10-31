@@ -8,7 +8,6 @@ import (
 
 var (
 	OwnerUnchangedErr          = common.NewValidationError("book.owner", "unchanged")
-	OwnerNotFoundErr           = common.NewValidationError("book.owner_id", "not_found")
 	TitleEmptyErr              = common.NewValidationError("book.title", "empty")
 	TitleTooLongErr            = common.NewValidationError("book.title", "too_long")
 	ISBNLengthErr              = common.NewValidationError("book.isbn", "length")

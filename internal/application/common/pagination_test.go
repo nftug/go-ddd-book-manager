@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	ac "go-ddd-book-manager/internal/application/common"
-	infracommon "go-ddd-book-manager/internal/infra/common"
+	dc "go-ddd-book-manager/internal/domain/common"
 
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +22,16 @@ func TestPaginationOffset(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, infracommon.PaginationOffset(tt.pagination))
+			require.Equal(t, tt.want, tt.pagination.Offset())
 		})
 	}
+}
+
+func TestPaginationNormalizeReturnsInvalidError(t *testing.T) {
+	_, err := (ac.Pagination{Page: -1}).Normalize()
+	require.ErrorIs(t, err, ac.PaginationInvalidErr)
+	var validation *dc.ValidationError
+	require.ErrorAs(t, err, &validation)
+	require.Equal(t, "pagination", validation.Field())
+	require.Equal(t, "invalid", validation.Code())
 }

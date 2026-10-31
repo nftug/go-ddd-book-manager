@@ -29,14 +29,14 @@ func NewCreateBook(i do.Injector) (*CreateBook, error) {
 func (s *CreateBook) Execute(
 	ctx context.Context,
 	actor dc.Actor,
-	r dto.BookRequest,
+	req dto.BookRequest,
 ) (common.CreatedResponse, error) {
 	b, err := db.New(
 		dc.NewDomainContext(actor, s.ids, s.clock),
-		r.Title,
-		r.Authors,
-		option.New(r.ISBN),
-		option.New(r.Description),
+		req.Title,
+		req.Authors,
+		option.New(req.ISBN),
+		option.New(req.Description),
 		du.RestoreReference(actor.ID(), actor.UserName()),
 	)
 	if err != nil {
