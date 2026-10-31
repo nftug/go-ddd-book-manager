@@ -85,10 +85,8 @@ func (b *Book) Update(
 }
 
 func (b Book) ValidateDeletion(actor common.Actor) error {
-	if !canManageBook(actor, b.owner.ID()) {
-		return common.ErrForbidden
-	}
-	return nil
+	permission := bookPermission{actor: actor, ownerID: b.owner.ID()}
+	return common.EnsureCanDelete(permission)
 }
 
 func (b *Book) ChangeOwner(ctx common.DomainContext, owner user.Reference) error {

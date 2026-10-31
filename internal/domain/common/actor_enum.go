@@ -15,6 +15,8 @@ const (
 	AdminRole ActorRole = "Admin"
 	// UserRole is a ActorRole of type UserRole.
 	UserRole ActorRole = "User"
+	// SystemRole is a ActorRole of type SystemRole.
+	SystemRole ActorRole = "System"
 )
 
 var ErrInvalidActorRole = errors.New("not a valid ActorRole")
@@ -32,8 +34,9 @@ func (x ActorRole) IsValid() bool {
 }
 
 var _ActorRoleValue = map[string]ActorRole{
-	"Admin": AdminRole,
-	"User":  UserRole,
+	"Admin":  AdminRole,
+	"User":   UserRole,
+	"System": SystemRole,
 }
 
 // ParseActorRole attempts to convert a string to a ActorRole.

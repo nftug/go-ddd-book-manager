@@ -4,11 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go-ddd-book-manager/internal/domain/common"
 	"go-ddd-book-manager/internal/domain/user"
 	"uuid"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testClock struct{ now time.Time }
@@ -82,6 +83,9 @@ func TestSystemActorUsesZeroUUIDAndCanSync(t *testing.T) {
 
 	assert.Equal(t, uuid.Nil(), ctx.Actor().ID())
 	assert.Equal(t, "System", ctx.Actor().UserName())
+	assert.Equal(t, common.SystemRole, ctx.Actor().Role())
+	assert.True(t, ctx.Actor().IsSystem())
+	assert.False(t, ctx.Actor().IsAdmin())
 
 	changed, err := user.NewName("Aki Updated")
 	require.NoError(t, err)
@@ -95,4 +99,15 @@ func TestSystemActorUsesZeroUUIDAndCanSync(t *testing.T) {
 
 	assert.Equal(t, uuid.Nil(), updated.UserID())
 	assert.Equal(t, "System", updated.UserName())
+}
+
+func TestNewRejectsSystemRole(t *testing.T) {
+	name, err := user.NewName("Aki")
+	require.NoError(t, err)
+	email, err := user.NewEmail("aki@example.com")
+	require.NoError(t, err)
+	ctx := common.NewDomainContext(common.NewSystemActor(), testIDs{}, testClock{time.Now()})
+
+	_, err = user.New(ctx, uuid.NewV4(), name, email, common.SystemRole)
+	require.ErrorIs(t, err, user.RoleInvalidErr)
 }

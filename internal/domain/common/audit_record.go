@@ -18,7 +18,7 @@ func (a AuditRecord) UserName() string     { return a.userName }
 func (a AuditRecord) Timestamp() time.Time { return a.timestamp }
 
 func RestoreAuditRecord(userId uuid.UUID, userName string, timestamp time.Time) AuditRecord {
-	return AuditRecord{userId, userName, timestamp}
+	return AuditRecord{userId, userName, timestamp.UTC()}
 }
 
 func RestoreAuditRecordOption(
@@ -33,7 +33,7 @@ func RestoreAuditRecordOption(
 		userId, _ := userId.Get()
 		userName, _ := userName.Get()
 		timestamp, _ := timestamp.Get()
-		return option.Some(AuditRecord{userId, userName, timestamp}), nil
+		return option.Some(AuditRecord{userId, userName, timestamp.UTC()}), nil
 	}
 	return option.None[AuditRecord](), errors.New("invalid state for audit record")
 }

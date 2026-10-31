@@ -28,6 +28,9 @@ func New(
 	email Email,
 	role common.ActorRole,
 ) (User, error) {
+	if role == common.SystemRole {
+		return User{}, RoleInvalidErr
+	}
 	audit, err := common.NewEntityAuditWithID(ctx, userCretePermission{}, id)
 	if err != nil {
 		return User{}, err
