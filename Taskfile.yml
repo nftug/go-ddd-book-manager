@@ -6,10 +6,34 @@ tasks:
     cmds:
       - go generate ./...
 
+  docker-up:
+    desc: Start Docker Compose services
+    cmds:
+      - docker compose -f docker/go-ddd-book-manager/docker-compose.yml up -d
+
+  format:
+    desc: Format codes with golines
+    cmds:
+      - go tool golines --base-formatter=gofmt -w .
+
+  fix:
+    desc: Fix codes
+    deps:
+      - generate
+      - format
+
+  test:
+    desc: Test the application
+    deps:
+      - generate
+    cmds:
+      - go test ./...
+
   run:
     desc: Run the application
     deps:
       - generate
+      - docker-up
     cmds:
       - go run ./cmd
 

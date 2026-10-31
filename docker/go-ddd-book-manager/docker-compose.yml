@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    ports:
+      - "${DATABASE_PORT_OUTER}:${DATABASE_PORT_INNER}"
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    platform: linux/arm64
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HOSTNAME: localhost
+    command: ["start-dev"]
+    ports:
+      - "${KEYCLOAK_PORT_OUTER}:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+
+volumes:
+  db_data:
+  keycloak_data:
