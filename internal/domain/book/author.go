@@ -6,52 +6,48 @@ import (
 	"github.com/samber/lo"
 )
 
-type AuthorName struct{ value string }
-
-func NewAuthorName(value string) (AuthorName, error) {
-	if value == "" {
-		return AuthorName{}, AuthorEmptyErr
-	}
-	if utf8.RuneCountInString(value) > 255 {
-		return AuthorName{}, AuthorTooLongErr
-	}
-	return AuthorName{value}, nil
-}
-func RestoreAuthorName(value string) AuthorName { return AuthorName{value} }
-func (v AuthorName) Value() string              { return v.value }
-
-type OrderedAuthor struct {
-	name  AuthorName
+type Author struct {
+	name  string
 	order int
 }
 
-func (a OrderedAuthor) Name() string    { return a.name.Value() }
-func (a OrderedAuthor) OrderIndex() int { return a.order }
-func RestoreOrderedAuthor(name AuthorName, orderIndex int) OrderedAuthor {
-	return OrderedAuthor{name, orderIndex}
+func newOrderedAuthor(name string, index int) (Author, error) {
+	if name == "" {
+		return Author{}, AuthorEmptyErr(index)
+	}
+	if utf8.RuneCountInString(name) > 255 {
+		return Author{}, AuthorTooLongErr(index)
+	}
+	return Author{name, index}, nil
 }
+func RestoreAuthor(name string, orderIndex int) Author {
+	return Author{name, orderIndex}
+}
+func (a Author) Name() string    { return a.name }
+func (a Author) OrderIndex() int { return a.order }
 
-type AuthorList struct{ values []OrderedAuthor }
+type AuthorList struct{ values []Author }
 
 func NewAuthorList(names []string) (AuthorList, error) {
 	if len(names) == 0 {
 		return AuthorList{}, AuthorsEmptyErr
 	}
-	authorNames, err := lo.MapErr(names, func(name string, _ int) (AuthorName, error) {
-		return NewAuthorName(name)
+	values, err := lo.MapErr(names, func(name string, index int) (Author, error) {
+		return newOrderedAuthor(name, index)
 	})
 	if err != nil {
 		return AuthorList{}, err
 	}
-	if len(lo.Uniq(authorNames)) != len(authorNames) {
-		return AuthorList{}, AuthorsDuplicateErr
+	seenNames := make(map[string]struct{}, len(values))
+	for _, author := range values {
+		if _, exists := seenNames[author.Name()]; exists {
+			return AuthorList{}, AuthorsDuplicateErr
+		}
+		seenNames[author.Name()] = struct{}{}
 	}
-	values := lo.Map(authorNames, func(name AuthorName, index int) OrderedAuthor {
-		return OrderedAuthor{name, index}
-	})
 	return AuthorList{values}, nil
 }
-func RestoreAuthorList(values []OrderedAuthor) AuthorList {
+func RestoreAuthorList(values []Author) AuthorList {
 	return AuthorList{lo.Clone(values)}
 }
-func (a AuthorList) Values() []OrderedAuthor { return lo.Clone(a.values) }
+func (a AuthorList) Values() []Author { return lo.Clone(a.values) }

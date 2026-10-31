@@ -1,24 +1,10 @@
 package user
 
-import (
-	"go-ddd-book-manager/internal/domain/common"
-	"uuid"
-)
+import "go-ddd-book-manager/internal/domain/common"
 
-// userPermission describes which user profile an actor may synchronize.
-type userPermission struct {
-	actor  common.Actor
-	userID uuid.UUID
-}
+// userSyncPermission allows only the system actor to sync a user profile.
+type userSyncPermission struct{ actor common.Actor }
 
-func (p userPermission) CanCreate() bool { return false }
-func (p userPermission) CanUpdate() bool {
-	return p.actor.IsSystem() || p.actor.ID() == p.userID
-}
-func (p userPermission) CanDelete() bool { return false }
-
-type userCretePermission struct{}
-
-func (userCretePermission) CanCreate() bool { return true }
-func (userCretePermission) CanUpdate() bool { return false }
-func (userCretePermission) CanDelete() bool { return false }
+func (p userSyncPermission) CanCreate() bool { return p.actor.IsSystem() }
+func (p userSyncPermission) CanUpdate() bool { return p.actor.IsSystem() }
+func (p userSyncPermission) CanDelete() bool { return p.actor.IsSystem() }

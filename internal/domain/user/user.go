@@ -28,10 +28,10 @@ func New(
 	email Email,
 	role common.ActorRole,
 ) (User, error) {
-	if role == common.SystemRole {
+	if !role.IsValid() || role == common.SystemRole {
 		return User{}, RoleInvalidErr
 	}
-	audit, err := common.NewEntityAuditWithID(ctx, userCretePermission{}, id)
+	audit, err := common.NewEntityAuditWithID(ctx, userSyncPermission{actor: ctx.Actor()}, id)
 	if err != nil {
 		return User{}, err
 	}
@@ -50,8 +50,13 @@ func (u User) Actor() common.Actor {
 
 // Sync applies the authoritative identity-provider profile. Unchanged profiles do not update audit data.
 func (u *User) Sync(ctx common.DomainContext, name Name, email Email, role common.ActorRole) error {
-	actor := ctx.Actor()
-	permission := userPermission{actor: actor, userID: u.ID()}
+	permission := userSyncPermission{actor: ctx.Actor()}
+	if err := common.EnsureCanUpdate(permission); err != nil {
+		return err
+	}
+	if !role.IsValid() || role == common.SystemRole {
+		return RoleInvalidErr
+	}
 	if u.name == name && u.email == email && u.role == role {
 		return nil
 	}
@@ -60,4 +65,9 @@ func (u *User) Sync(ctx common.DomainContext, name Name, email Email, role commo
 	}
 	u.name, u.email, u.role = name, email, role
 	return nil
+}
+
+func (u User) ValidateDeletion(actor common.Actor) error {
+	permission := userSyncPermission{actor: actor}
+	return common.EnsureCanDelete(permission)
 }

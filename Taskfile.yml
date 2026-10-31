@@ -18,9 +18,9 @@ tasks:
 
   fix:
     desc: Fix codes
-    deps:
-      - generate
-      - format
+    cmds:
+      - task: generate
+      - task: format
 
   test:
     desc: Test the application

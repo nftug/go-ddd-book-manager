@@ -21,5 +21,5 @@ func (p ownerChangePermission) CanUpdate() bool { return p.actor.IsAdmin() }
 func (p ownerChangePermission) CanDelete() bool { return false }
 
 func canManageBook(actor common.Actor, ownerID uuid.UUID) bool {
-	return actor.IsAdmin() || actor.ID() == ownerID
+	return !actor.IsSystem() && (actor.IsAdmin() || actor.ID() == ownerID)
 }

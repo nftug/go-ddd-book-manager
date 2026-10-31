@@ -20,7 +20,7 @@ type Book struct {
 func Restore(
 	audit common.EntityAudit,
 	title string,
-	authors []OrderedAuthor,
+	authors []Author,
 	isbn, description option.Option[string],
 	owner user.Reference,
 	checkouts []Checkout,
@@ -62,7 +62,7 @@ func New(
 func (b Book) Audit() common.EntityAudit          { return b.audit }
 func (b Book) ID() uuid.UUID                      { return b.audit.ID() }
 func (b Book) Title() string                      { return b.title.Value() }
-func (b Book) Authors() []OrderedAuthor           { return b.authors.Values() }
+func (b Book) Authors() []Author                  { return b.authors.Values() }
 func (b Book) ISBN() option.Option[string]        { return b.isbn.Map(ISBN.Value) }
 func (b Book) Description() option.Option[string] { return b.description.Map(Description.Value) }
 func (b Book) Owner() user.Reference              { return b.owner }
@@ -90,9 +90,6 @@ func (b Book) ValidateDeletion(actor common.Actor) error {
 }
 
 func (b *Book) ChangeOwner(ctx common.DomainContext, owner user.Reference) error {
-	if !ctx.Actor().IsAdmin() {
-		return common.ErrForbidden
-	}
 	if b.owner == owner {
 		return OwnerUnchangedErr
 	}

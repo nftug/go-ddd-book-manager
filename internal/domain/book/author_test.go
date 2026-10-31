@@ -1,41 +1,21 @@
 package book_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
+	"go-ddd-book-manager/internal/domain/book"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go-ddd-book-manager/internal/domain/book"
 )
 
-func TestAuthorNameConstructorRestoreAndValidation(t *testing.T) {
-	name, err := book.NewAuthorName("Aki")
-	require.NoError(t, err)
-
-	require.Equal(t, "Aki", name.Value())
-	require.Equal(t, "Restored", book.RestoreAuthorName("Restored").Value())
-
-	for _, tc := range []struct {
-		name  string
-		value string
-		want  string
-	}{
-		{name: "empty", value: "", want: "empty"},
-		{name: "too long", value: strings.Repeat("あ", 256), want: "too_long"},
-	} {
-		t.Run(tc.want, func(t *testing.T) {
-			_, err := book.NewAuthorName(tc.value)
-			requireValidationError(t, err, "book.authors", tc.want)
-		})
-	}
-}
-
 func TestOrderedAuthorRestorePreservesNameAndOrder(t *testing.T) {
-	name := book.RestoreAuthorName("Aki")
-	author := book.RestoreOrderedAuthor(name, 3)
+	name := "Aki"
+	author := book.RestoreAuthor(name, 3)
 
-	assert.Equal(t, name.Value(), author.Name())
+	assert.Equal(t, name, author.Name())
 	assert.Equal(t, 3, author.OrderIndex())
 }
 
@@ -57,24 +37,33 @@ func TestAuthorListConstructorOrderingAndValidation(t *testing.T) {
 	}{
 		{name: "empty list", input: nil, want: "empty"},
 		{name: "duplicate names", input: []string{"Aki", "Aki"}, want: "duplicate"},
-		{name: "invalid name", input: []string{"Aki", ""}, want: "empty"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := book.NewAuthorList(tc.input)
 			requireValidationError(t, err, "book.authors", tc.want)
 		})
 	}
+
+	for _, index := range []int{0, 1, 2} {
+		names := []string{"Aki", "Mika", "Yui"}
+		names[index] = ""
+		_, err := book.NewAuthorList(names)
+		requireValidationError(t, err, fmt.Sprintf("book.author[%d]", index), "empty")
+	}
+
+	_, err = book.NewAuthorList([]string{"Aki", strings.Repeat("あ", 256)})
+	requireValidationError(t, err, "book.author[1]", "too_long")
 }
 
 func TestRestoreAuthorListCopiesInputAndValues(t *testing.T) {
-	first := book.RestoreOrderedAuthor(book.RestoreAuthorName("Aki"), 0)
-	input := []book.OrderedAuthor{first}
+	first := book.RestoreAuthor("Aki", 0)
+	input := []book.Author{first}
 	list := book.RestoreAuthorList(input)
 
-	input[0] = book.OrderedAuthor{}
+	input[0] = book.Author{}
 	require.Equal(t, "Aki", list.Values()[0].Name())
 
 	values := list.Values()
-	values[0] = book.OrderedAuthor{}
+	values[0] = book.Author{}
 	require.Equal(t, "Aki", list.Values()[0].Name())
 }

@@ -20,6 +20,20 @@ type testIDs struct{}
 
 func (testIDs) NewUUIDv7() uuid.UUID { return uuid.NewV7() }
 
+func newSystemCreatedUser(
+	t *testing.T,
+	id uuid.UUID,
+	name user.Name,
+	email user.Email,
+	role common.ActorRole,
+) user.User {
+	t.Helper()
+	ctx := common.NewDomainContext(common.NewSystemActor(), testIDs{}, testClock{time.Now()})
+	u, err := user.New(ctx, id, name, email, role)
+	require.NoError(t, err)
+	return u
+}
+
 func TestSyncOnlyUpdatesAuditWhenProfileChanges(t *testing.T) {
 	id := uuid.NewV4()
 	name, err := user.NewName("Aki")
@@ -27,16 +41,11 @@ func TestSyncOnlyUpdatesAuditWhenProfileChanges(t *testing.T) {
 	email, err := user.NewEmail("aki@example.com")
 	require.NoError(t, err)
 	ctx := common.NewDomainContext(
-		common.NewActor(id, "Aki", common.UserRole),
+		common.NewSystemActor(),
 		testIDs{},
 		testClock{time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
 	)
-
-	u, err := user.New(ctx, id, name, email, common.UserRole)
-	require.NoError(t, err)
-
-	assert.Equal(t, name.Value(), u.Name())
-	assert.Equal(t, email.Value(), u.Email())
+	u := newSystemCreatedUser(t, id, name, email, common.UserRole)
 
 	require.NoError(t, u.Sync(ctx, name, email, common.UserRole))
 	assert.True(t, u.Audit().Updated().IsNone())
@@ -50,23 +59,36 @@ func TestSyncOnlyUpdatesAuditWhenProfileChanges(t *testing.T) {
 	assert.True(t, u.Audit().Updated().IsSome())
 }
 
-func TestSyncRejectsDifferentUser(t *testing.T) {
+func TestSyncRejectsNonSystemActor(t *testing.T) {
 	id := uuid.NewV4()
 	name, err := user.NewName("Aki")
 	require.NoError(t, err)
 	email, err := user.NewEmail("aki@example.com")
 	require.NoError(t, err)
 	ctx := common.NewDomainContext(
-		common.NewActor(id, "Aki", common.UserRole),
+		common.NewActor(id, "Aki", common.AdminRole),
 		testIDs{},
 		testClock{time.Now()},
 	)
 
-	u, err := user.New(ctx, uuid.NewV4(), name, email, common.UserRole)
-	require.NoError(t, err)
+	u := newSystemCreatedUser(t, uuid.NewV4(), name, email, common.UserRole)
 
 	require.ErrorIs(t, u.Sync(ctx, name, email, common.AdminRole), common.ErrForbidden)
 
+	assert.Equal(t, common.UserRole, u.Role())
+	assert.True(t, u.Audit().Updated().IsNone())
+}
+
+func TestSyncRejectsInvalidAndSystemRoles(t *testing.T) {
+	name, err := user.NewName("Aki")
+	require.NoError(t, err)
+	email, err := user.NewEmail("aki@example.com")
+	require.NoError(t, err)
+	ctx := common.NewDomainContext(common.NewSystemActor(), testIDs{}, testClock{time.Now()})
+	u := newSystemCreatedUser(t, uuid.NewV4(), name, email, common.UserRole)
+
+	require.ErrorIs(t, u.Sync(ctx, name, email, common.ActorRole("invalid")), user.RoleInvalidErr)
+	require.ErrorIs(t, u.Sync(ctx, name, email, common.SystemRole), user.RoleInvalidErr)
 	assert.Equal(t, common.UserRole, u.Role())
 	assert.True(t, u.Audit().Updated().IsNone())
 }
@@ -78,8 +100,7 @@ func TestSystemActorUsesZeroUUIDAndCanSync(t *testing.T) {
 	require.NoError(t, err)
 	ctx := common.NewDomainContext(common.NewSystemActor(), testIDs{}, testClock{time.Now()})
 
-	u, err := user.New(ctx, uuid.NewV4(), name, email, common.UserRole)
-	require.NoError(t, err)
+	u := newSystemCreatedUser(t, uuid.NewV4(), name, email, common.UserRole)
 
 	assert.Equal(t, uuid.Nil(), ctx.Actor().ID())
 	assert.Equal(t, "System", ctx.Actor().UserName())
@@ -110,4 +131,19 @@ func TestNewRejectsSystemRole(t *testing.T) {
 
 	_, err = user.New(ctx, uuid.NewV4(), name, email, common.SystemRole)
 	require.ErrorIs(t, err, user.RoleInvalidErr)
+}
+
+func TestNewRequiresSystemActor(t *testing.T) {
+	name, err := user.NewName("Aki")
+	require.NoError(t, err)
+	email, err := user.NewEmail("aki@example.com")
+	require.NoError(t, err)
+	ctx := common.NewDomainContext(
+		common.NewActor(uuid.NewV4(), "Aki", common.AdminRole),
+		testIDs{},
+		testClock{time.Now()},
+	)
+
+	_, err = user.New(ctx, uuid.NewV4(), name, email, common.UserRole)
+	require.ErrorIs(t, err, common.ErrForbidden)
 }

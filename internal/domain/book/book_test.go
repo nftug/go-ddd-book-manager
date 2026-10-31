@@ -4,13 +4,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go-ddd-book-manager/internal/common/option"
 	"go-ddd-book-manager/internal/domain/book"
 	"go-ddd-book-manager/internal/domain/common"
 	"go-ddd-book-manager/internal/domain/user"
 	"uuid"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testClock struct{ now time.Time }
@@ -50,7 +51,7 @@ func TestAuthorsGetterReturnsCopy(t *testing.T) {
 
 	require.Equal(t, "DDD", b.Title())
 	authors := b.Authors()
-	authors[0] = book.OrderedAuthor{}
+	authors[0] = book.Author{}
 	require.Equal(t, "Aki", b.Authors()[0].Name())
 }
 
@@ -92,7 +93,7 @@ func TestRestoreMapsOptionalScalarsToValueObjects(t *testing.T) {
 	b := book.Restore(
 		common.EntityAudit{},
 		"DDD",
-		[]book.OrderedAuthor{},
+		[]book.Author{},
 		option.Some("1234567890123"),
 		option.Some("Restored description"),
 		owner,
