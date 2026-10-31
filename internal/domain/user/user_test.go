@@ -29,7 +29,7 @@ func newSystemCreatedUser(
 ) user.User {
 	t.Helper()
 	ctx := common.NewDomainContext(common.NewSystemActor(), testIDs{}, testClock{time.Now()})
-	u, err := user.New(ctx, id, name, email, role)
+	u, err := user.New(ctx, id, name.Value(), email.Value(), role)
 	require.NoError(t, err)
 	return u
 }
@@ -47,13 +47,17 @@ func TestSyncOnlyUpdatesAuditWhenProfileChanges(t *testing.T) {
 	)
 	u := newSystemCreatedUser(t, id, name, email, common.UserRole)
 
-	require.NoError(t, u.Sync(ctx, name, email, common.UserRole))
+	changed, err := u.Sync(ctx, name.Value(), email.Value(), common.UserRole)
+	require.NoError(t, err)
+	assert.False(t, changed)
 	assert.True(t, u.Audit().Updated().IsNone())
 
 	changedName, err := user.NewName("Aki Tanaka")
 	require.NoError(t, err)
 
-	require.NoError(t, u.Sync(ctx, changedName, email, common.UserRole))
+	changed, err = u.Sync(ctx, changedName.Value(), email.Value(), common.UserRole)
+	require.NoError(t, err)
+	assert.True(t, changed)
 
 	assert.Equal(t, changedName.Value(), u.Name())
 	assert.True(t, u.Audit().Updated().IsSome())
@@ -73,7 +77,8 @@ func TestSyncRejectsNonSystemActor(t *testing.T) {
 
 	u := newSystemCreatedUser(t, uuid.NewV4(), name, email, common.UserRole)
 
-	require.ErrorIs(t, u.Sync(ctx, name, email, common.AdminRole), common.ErrForbidden)
+	_, err = u.Sync(ctx, name.Value(), email.Value(), common.AdminRole)
+	require.ErrorIs(t, err, common.ErrForbidden)
 
 	assert.Equal(t, common.UserRole, u.Role())
 	assert.True(t, u.Audit().Updated().IsNone())
@@ -87,8 +92,10 @@ func TestSyncRejectsInvalidAndSystemRoles(t *testing.T) {
 	ctx := common.NewDomainContext(common.NewSystemActor(), testIDs{}, testClock{time.Now()})
 	u := newSystemCreatedUser(t, uuid.NewV4(), name, email, common.UserRole)
 
-	require.ErrorIs(t, u.Sync(ctx, name, email, common.ActorRole("invalid")), user.RoleInvalidErr)
-	require.ErrorIs(t, u.Sync(ctx, name, email, common.SystemRole), user.RoleInvalidErr)
+	_, err = u.Sync(ctx, name.Value(), email.Value(), common.ActorRole("invalid"))
+	require.ErrorIs(t, err, user.RoleInvalidErr)
+	_, err = u.Sync(ctx, name.Value(), email.Value(), common.SystemRole)
+	require.ErrorIs(t, err, user.RoleInvalidErr)
 	assert.Equal(t, common.UserRole, u.Role())
 	assert.True(t, u.Audit().Updated().IsNone())
 }
@@ -110,7 +117,9 @@ func TestSystemActorUsesZeroUUIDAndCanSync(t *testing.T) {
 
 	changed, err := user.NewName("Aki Updated")
 	require.NoError(t, err)
-	require.NoError(t, u.Sync(ctx, changed, email, common.AdminRole))
+	profileChanged, err := u.Sync(ctx, changed.Value(), email.Value(), common.AdminRole)
+	require.NoError(t, err)
+	assert.True(t, profileChanged)
 
 	assert.Equal(t, changed.Value(), u.Name())
 	assert.Equal(t, common.AdminRole, u.Role())
@@ -129,7 +138,7 @@ func TestNewRejectsSystemRole(t *testing.T) {
 	require.NoError(t, err)
 	ctx := common.NewDomainContext(common.NewSystemActor(), testIDs{}, testClock{time.Now()})
 
-	_, err = user.New(ctx, uuid.NewV4(), name, email, common.SystemRole)
+	_, err = user.New(ctx, uuid.NewV4(), name.Value(), email.Value(), common.SystemRole)
 	require.ErrorIs(t, err, user.RoleInvalidErr)
 }
 
@@ -144,6 +153,22 @@ func TestNewRequiresSystemActor(t *testing.T) {
 		testClock{time.Now()},
 	)
 
-	_, err = user.New(ctx, uuid.NewV4(), name, email, common.UserRole)
+	_, err = user.New(ctx, uuid.NewV4(), name.Value(), email.Value(), common.UserRole)
 	require.ErrorIs(t, err, common.ErrForbidden)
+}
+
+func TestNewValidatesNameAndEmail(t *testing.T) {
+	ctx := common.NewDomainContext(common.NewSystemActor(), testIDs{}, testClock{time.Now()})
+	tests := []struct{ name, inputName, email, field string }{
+		{name: "empty name", inputName: "", email: "aki@example.com", field: "user.name"},
+		{name: "invalid email", inputName: "Aki", email: "invalid", field: "user.email"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := user.New(ctx, uuid.NewV4(), tt.inputName, tt.email, common.UserRole)
+			var validation *common.ValidationError
+			require.ErrorAs(t, err, &validation)
+			require.Equal(t, tt.field, validation.Field())
+		})
+	}
 }

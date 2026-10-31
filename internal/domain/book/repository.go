@@ -2,12 +2,12 @@ package book
 
 import (
 	"context"
-
 	"uuid"
 )
 
 type Repository interface {
-	FindByID(ctx context.Context, id uuid.UUID) (*Book, error)
-	Save(ctx context.Context, book Book) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	FindByID(context.Context, uuid.UUID) (*Book, error)
+	Create(context.Context, Book) error
+	Update(context.Context, Book) error
+	Delete(context.Context, Book) error
 }

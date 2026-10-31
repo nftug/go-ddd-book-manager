@@ -4,10 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"uuid"
-
 	domain "go-ddd-book-manager/internal/domain/user"
-	ic "go-ddd-book-manager/internal/infra/common"
+	"go-ddd-book-manager/internal/infra/database"
+	"uuid"
 
 	"github.com/samber/do/v2"
 	"github.com/uptrace/bun"
@@ -16,8 +15,7 @@ import (
 type repository struct{ db *bun.DB }
 
 func NewRepository(i do.Injector) (domain.Repository, error) {
-	db := do.MustInvoke[*bun.DB](i)
-	return &repository{db: db}, nil
+	return &repository{do.MustInvoke[*bun.DB](i)}, nil
 }
 
 var _ domain.Repository = (*repository)(nil)
@@ -31,24 +29,50 @@ func (r *repository) FindByID(ctx context.Context, id uuid.UUID) (*domain.User, 
 	if err != nil {
 		return nil, err
 	}
-	u, err := restoreUser(m)
+	u, err := m.toDomain()
 	if err != nil {
 		return nil, err
 	}
 	return &u, nil
 }
 
-func (r *repository) Save(ctx context.Context, u domain.User) error {
-	m := userModelFromDomain(u)
-	_, err := ic.UpsertWithAudit(r.db.NewInsert().Model(&m)).
-		Set("name = EXCLUDED.name").
-		Set("email = EXCLUDED.email").
-		Set("role = EXCLUDED.role").
-		Exec(ctx)
-	return err
+func (r *repository) Create(ctx context.Context, u domain.User) error {
+	var m model
+	m.fromDomain(u)
+	_, err := r.db.NewInsert().Model(&m).Exec(ctx)
+	return database.ConflictOnDuplicate(err)
 }
 
-func (r *repository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.NewDelete().Model((*model)(nil)).Where("id = ?", id).Exec(ctx)
-	return err
+func (r *repository) Update(ctx context.Context, u domain.User) error {
+	var m model
+	m.fromDomain(u)
+	res, err := r.db.NewUpdate().
+		Model(&m).
+		Set("name = ?", m.Name).
+		Set("email = ?", m.Email).
+		Set("role = ?", m.Role).
+		Set("updated_by_id = ?", m.UpdatedByID).
+		Set("updated_by_name = ?", m.UpdatedByName).
+		Set("updated_at = ?", m.UpdatedAt).
+		Set("version = version + 1").
+		Where("id = ? AND version = ?", m.ID, u.Audit().Version()).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if err := database.ValidateNoConflict(res); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *repository) Delete(ctx context.Context, u domain.User) error {
+	res, err := r.db.NewDelete().
+		Model((*model)(nil)).
+		Where("id = ? AND version = ?", u.ID(), u.Audit().Version()).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	return database.ValidateNoConflict(res)
 }

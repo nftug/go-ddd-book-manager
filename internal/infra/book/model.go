@@ -4,21 +4,21 @@ import (
 	"time"
 	"uuid"
 
-	ic "go-ddd-book-manager/internal/infra/common"
+	"go-ddd-book-manager/internal/infra/database"
 
 	"github.com/uptrace/bun"
 )
 
 type model struct {
-	bun.BaseModel `bun:"table:books"`
-	ic.Audit      `bun:",embed"`
-	Title         string          `bun:"title,notnull"`
-	ISBN          *string         `bun:"isbn"`
-	Description   *string         `bun:"description"`
-	OwnerID       uuid.UUID       `bun:"owner_id,type:uuid,notnull"`
-	OwnerName     string          `bun:"owner_name,notnull"`
-	Authors       []authorModel   `bun:"rel:has-many,join:id=book_id"`
-	Checkouts     []checkoutModel `bun:"rel:has-many,join:id=book_id"`
+	bun.BaseModel  `bun:"table:books"`
+	database.Audit `bun:",embed"`
+	Title          string          `bun:"title,notnull"`
+	ISBN           *string         `bun:"isbn"`
+	Description    *string         `bun:"description"`
+	OwnerID        uuid.UUID       `bun:"owner_id,type:uuid,notnull"`
+	OwnerName      string          `bun:"owner_name,notnull"`
+	Authors        []authorModel   `bun:"rel:has-many,join:id=book_id"`
+	Checkouts      []checkoutModel `bun:"rel:has-many,join:id=book_id"`
 }
 
 type authorModel struct {
@@ -37,4 +37,14 @@ type checkoutModel struct {
 	CheckedOutAt  time.Time  `bun:"checked_out_at,notnull"`
 	ReturnedAt    *time.Time `bun:"returned_at"`
 	Position      int        `bun:"position,notnull"`
+}
+
+func relations(q *bun.SelectQuery) *bun.SelectQuery {
+	return q.
+		Relation("Authors", func(q *bun.SelectQuery) *bun.SelectQuery {
+			return q.Order("order_index ASC")
+		}).
+		Relation("Checkouts", func(q *bun.SelectQuery) *bun.SelectQuery {
+			return q.Order("position ASC")
+		})
 }

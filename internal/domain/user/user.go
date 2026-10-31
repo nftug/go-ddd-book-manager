@@ -27,18 +27,26 @@ func Restore(audit common.EntityAudit, name, email string, role common.ActorRole
 func New(
 	ctx common.DomainContext,
 	id uuid.UUID,
-	name Name,
-	email Email,
+	name string,
+	email string,
 	role common.ActorRole,
 ) (User, error) {
 	if err := validateRole(role); err != nil {
+		return User{}, err
+	}
+	validatedName, err := NewName(name)
+	if err != nil {
+		return User{}, err
+	}
+	validatedEmail, err := NewEmail(email)
+	if err != nil {
 		return User{}, err
 	}
 	audit, err := common.NewEntityAuditWithID(ctx, userSyncPermission{actor: ctx.Actor()}, id)
 	if err != nil {
 		return User{}, err
 	}
-	return User{audit, name, email, role}, nil
+	return User{audit, validatedName, validatedEmail, role}, nil
 }
 
 func (u User) Audit() common.EntityAudit { return u.audit }
@@ -52,22 +60,36 @@ func (u User) Actor() common.Actor {
 }
 
 // Sync applies the authoritative identity-provider profile. Unchanged profiles do not update audit data.
-func (u *User) Sync(ctx common.DomainContext, name Name, email Email, role common.ActorRole) error {
+func (u *User) Sync(
+	ctx common.DomainContext,
+	name string,
+	email string,
+	role common.ActorRole,
+) (bool, error) {
 	permission := userSyncPermission{actor: ctx.Actor()}
 	if err := common.EnsureCanUpdate(permission); err != nil {
-		return err
+		return false, err
 	}
+
 	if err := validateRole(role); err != nil {
-		return err
+		return false, err
 	}
-	if u.name == name && u.email == email && u.role == role {
-		return nil
+	validatedName, err := NewName(name)
+	if err != nil {
+		return false, err
+	}
+	validatedEmail, err := NewEmail(email)
+	if err != nil {
+		return false, err
+	}
+	if u.name == validatedName && u.email == validatedEmail && u.role == role {
+		return false, nil
 	}
 	if err := u.audit.Update(ctx, permission); err != nil {
-		return err
+		return false, err
 	}
-	u.name, u.email, u.role = name, email, role
-	return nil
+	u.name, u.email, u.role = validatedName, validatedEmail, role
+	return true, nil
 }
 
 func (u User) ValidateDeletion(actor common.Actor) error {

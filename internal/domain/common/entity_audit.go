@@ -7,20 +7,23 @@ import (
 
 type EntityAudit struct {
 	id      uuid.UUID
+	version int64
 	created AuditRecord
 	updated option.Option[AuditRecord]
 }
 
 func (e EntityAudit) ID() uuid.UUID                       { return e.id }
+func (e EntityAudit) Version() int64                      { return e.version }
 func (e EntityAudit) Created() AuditRecord                { return e.created }
 func (e EntityAudit) Updated() option.Option[AuditRecord] { return e.updated }
 
 func RestoreEntityAudit(
 	id uuid.UUID,
+	version int64,
 	created AuditRecord,
 	updated option.Option[AuditRecord],
 ) EntityAudit {
-	return EntityAudit{id, created, updated}
+	return EntityAudit{id: id, version: version, created: created, updated: updated}
 }
 
 func NewEntityAudit(ctx DomainContext, permission PermissionPolicy) (EntityAudit, error) {
@@ -45,6 +48,7 @@ func NewEntityAuditWithID(
 func newEntityAudit(ctx DomainContext, id uuid.UUID) EntityAudit {
 	return EntityAudit{
 		id:      id,
+		version: 1,
 		created: NewAuditRecord(ctx),
 		updated: option.None[AuditRecord](),
 	}

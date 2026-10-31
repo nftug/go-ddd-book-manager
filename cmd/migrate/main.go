@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"go-ddd-book-manager/internal/infra/common"
+	"go-ddd-book-manager/internal/infra/database"
 	"go-ddd-book-manager/internal/infra/migrations"
 )
 
@@ -22,7 +22,7 @@ func run() error {
 			"usage: migrate <up|down|create> [name]; DATABASE_URL is required for up/down",
 		)
 	}
-	db := common.OpenDB(os.Getenv("DATABASE_URL"))
+	db := database.OpenDB(os.Getenv("DATABASE_URL"))
 	defer db.Close()
 	m, err := migrations.New(db)
 	if err != nil {

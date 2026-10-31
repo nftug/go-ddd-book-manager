@@ -24,16 +24,12 @@ func (testIDs) NewUUIDv7() uuid.UUID { return uuid.NewV7() }
 
 func newBook(t *testing.T, ctx common.DomainContext, owner user.Reference) book.Book {
 	t.Helper()
-	title, err := book.NewTitle("DDD")
-	require.NoError(t, err)
-	authors, err := book.NewAuthorList([]string{"Aki"})
-	require.NoError(t, err)
 	b, err := book.New(
 		ctx,
-		title,
-		authors,
-		option.None[book.ISBN](),
-		option.None[book.Description](),
+		"DDD",
+		[]string{"Aki"},
+		option.None[string](),
+		option.None[string](),
 		owner,
 	)
 	require.NoError(t, err)
@@ -62,15 +58,14 @@ func TestOptionalISBNAndDescriptionAreExposedAsOptionalScalars(t *testing.T) {
 		testIDs{},
 		testClock{time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
 	)
-	title, err := book.NewTitle("DDD")
-	require.NoError(t, err)
-	authors, err := book.NewAuthorList([]string{"Aki"})
-	require.NoError(t, err)
-	isbn, err := book.NewISBN("1234567890123")
-	require.NoError(t, err)
-	description, err := book.NewDescription("A domain-driven design book")
-	require.NoError(t, err)
-	b, err := book.New(ctx, title, authors, option.Some(isbn), option.Some(description), owner)
+	b, err := book.New(
+		ctx,
+		"DDD",
+		[]string{"Aki"},
+		option.Some("1234567890123"),
+		option.Some("A domain-driven design book"),
+		owner,
+	)
 	require.NoError(t, err)
 
 	assert.Equal(t, option.Some("1234567890123"), b.ISBN())
@@ -78,10 +73,10 @@ func TestOptionalISBNAndDescriptionAreExposedAsOptionalScalars(t *testing.T) {
 
 	require.NoError(t, b.Update(
 		ctx,
-		title,
-		authors,
-		option.None[book.ISBN](),
-		option.None[book.Description](),
+		"DDD",
+		[]string{"Aki"},
+		option.None[string](),
+		option.None[string](),
 	))
 
 	assert.Equal(t, option.None[string](), b.ISBN())
@@ -102,4 +97,56 @@ func TestRestoreMapsOptionalScalarsToValueObjects(t *testing.T) {
 
 	assert.Equal(t, option.Some("1234567890123"), b.ISBN())
 	assert.Equal(t, option.Some("Restored description"), b.Description())
+}
+
+func TestNewValidatesRawBookValues(t *testing.T) {
+	owner := user.RestoreReference(uuid.NewV4(), "Owner")
+	ctx := common.NewDomainContext(
+		common.NewActor(owner.ID(), owner.Name(), common.UserRole),
+		testIDs{},
+		testClock{time.Now()},
+	)
+	tests := []struct {
+		name        string
+		title       string
+		authors     []string
+		isbn        option.Option[string]
+		description option.Option[string]
+		field       string
+	}{
+		{name: "title", title: "", authors: []string{"Aki"}, field: "book.title"},
+		{name: "author", title: "DDD", authors: []string{""}, field: "book.author[0]"},
+		{
+			name:    "ISBN",
+			title:   "DDD",
+			authors: []string{"Aki"},
+			isbn:    option.Some("bad"),
+			field:   "book.isbn",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := book.New(ctx, tt.title, tt.authors, tt.isbn, tt.description, owner)
+			var validation *common.ValidationError
+			require.ErrorAs(t, err, &validation)
+			require.Equal(t, tt.field, validation.Field())
+		})
+	}
+}
+
+func TestUpdateInvalidValuesLeaveBookAndAuditUnchanged(t *testing.T) {
+	owner := user.RestoreReference(uuid.NewV4(), "Owner")
+	ctx := common.NewDomainContext(
+		common.NewActor(owner.ID(), owner.Name(), common.UserRole),
+		testIDs{},
+		testClock{time.Now()},
+	)
+	b := newBook(t, ctx, owner)
+	before := b.Audit()
+	err := b.Update(ctx, "Updated", []string{"Aki"}, option.Some("invalid"), option.None[string]())
+	var validation *common.ValidationError
+	require.ErrorAs(t, err, &validation)
+	require.Equal(t, "DDD", b.Title())
+	require.Equal(t, before, b.Audit())
+	require.True(t, b.ISBN().IsNone())
 }

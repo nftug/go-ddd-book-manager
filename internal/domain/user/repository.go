@@ -2,12 +2,12 @@ package user
 
 import (
 	"context"
-
 	"uuid"
 )
 
 type Repository interface {
-	FindByID(ctx context.Context, id uuid.UUID) (*User, error)
-	Save(ctx context.Context, user User) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	FindByID(context.Context, uuid.UUID) (*User, error)
+	Create(context.Context, User) error
+	Update(context.Context, User) error
+	Delete(context.Context, User) error
 }

@@ -13,7 +13,6 @@ Feature単位で分け、Feature内では更新系を`command`、参照系を`qu
 ```text
 internal/application/
 ├── book/
-│   ├── identity.go
 │   ├── command/
 │   │   ├── create_book.go
 │   │   └── update_book.go
@@ -23,6 +22,7 @@ internal/application/
 │   │   ├── query.go
 │   │   └── query_service.go
 │   └── dto/
+│       ├── identity.go
 │       ├── request.go
 │       └── response.go
 ├── user/
@@ -77,7 +77,7 @@ Repository interfaceは既存のDomain packageのものを使い、同じ目的�
 
 path parameterに対応する対象識別情報、query parameterに対応する検索条件、作成・更新入力は、Applicationの入力契約として定義する。
 
-対象識別情報は親のFeature packageの`identity.go`へ置き、`command`・`query`の複数UseCaseで共有してよい。
+対象識別情報はFeatureの`dto/identity.go`へ置き、`command`・`query`で共有する。
 
 ```go
 type BookIdentity struct {
@@ -91,7 +91,7 @@ HTTPとの対応付けはPresentation側で行う。
 
 | 情報 | 所有する層 |
 | --- | --- |
-| `BookIdentity`、一覧検索条件、更新入力 | Application |
+| `dto.BookIdentity`、一覧検索条件、更新入力 | Application |
 | `/books/:book_id`などのroute定義 | Presentation |
 | Echoの`param`・`query`タグ、binding | Presentation |
 | path/query文字列からUUIDや数値へのparse | Presentation |

@@ -1,4 +1,4 @@
-package common
+package database
 
 import (
 	"time"
@@ -6,6 +6,7 @@ import (
 )
 
 type Audit struct {
+	Version       int64      `bun:"version,notnull"`
 	ID            uuid.UUID  `bun:"id,pk,type:uuid"`
 	CreatedByID   uuid.UUID  `bun:"created_by_id,type:uuid,notnull"`
 	CreatedByName string     `bun:"created_by_name,notnull"`

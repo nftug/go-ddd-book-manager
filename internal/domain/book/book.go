@@ -36,25 +36,70 @@ func Restore(
 	}
 }
 
+// bookValues constructs all validated values before the aggregate is changed.
+type bookValues struct {
+	title       Title
+	authors     AuthorList
+	isbn        option.Option[ISBN]
+	description option.Option[Description]
+}
+
+func newBookValues(
+	title string,
+	authors []string,
+	isbn, description option.Option[string],
+) (bookValues, error) {
+	var values bookValues
+	var err error
+	if values.title, err = NewTitle(title); err != nil {
+		return bookValues{}, err
+	}
+	if values.authors, err = NewAuthorList(authors); err != nil {
+		return bookValues{}, err
+	}
+	if raw, ok := isbn.Get(); ok {
+		value, err := NewISBN(raw)
+		if err != nil {
+			return bookValues{}, err
+		}
+		values.isbn = option.Some(value)
+	}
+	if raw, ok := description.Get(); ok {
+		value, err := NewDescription(raw)
+		if err != nil {
+			return bookValues{}, err
+		}
+		values.description = option.Some(value)
+	}
+	return values, nil
+}
+
 func New(
 	ctx common.DomainContext,
-	title Title,
-	authors AuthorList,
-	isbn option.Option[ISBN],
-	description option.Option[Description],
+	title string,
+	authors []string,
+	isbn option.Option[string],
+	description option.Option[string],
 	owner user.Reference,
 ) (Book, error) {
 	permission := bookPermission{actor: ctx.Actor(), ownerID: owner.ID()}
+	if err := common.EnsureCanCreate(permission); err != nil {
+		return Book{}, err
+	}
+	values, err := newBookValues(title, authors, isbn, description)
+	if err != nil {
+		return Book{}, err
+	}
 	audit, err := common.NewEntityAudit(ctx, permission)
 	if err != nil {
 		return Book{}, err
 	}
 	return Book{
 		audit:       audit,
-		title:       title,
-		authors:     authors,
-		isbn:        isbn,
-		description: description,
+		title:       values.title,
+		authors:     values.authors,
+		isbn:        values.isbn,
+		description: values.description,
 		owner:       owner,
 	}, nil
 }
@@ -71,16 +116,23 @@ func (b Book) IsCheckedOut() bool                 { return b.checkouts.IsChecked
 
 func (b *Book) Update(
 	ctx common.DomainContext,
-	title Title,
-	authors AuthorList,
-	isbn option.Option[ISBN],
-	description option.Option[Description],
+	title string,
+	authors []string,
+	isbn option.Option[string],
+	description option.Option[string],
 ) error {
 	permission := bookPermission{actor: ctx.Actor(), ownerID: b.owner.ID()}
+	if err := common.EnsureCanUpdate(permission); err != nil {
+		return err
+	}
+	values, err := newBookValues(title, authors, isbn, description)
+	if err != nil {
+		return err
+	}
 	if err := b.audit.Update(ctx, permission); err != nil {
 		return err
 	}
-	b.title, b.authors, b.isbn, b.description = title, authors, isbn, description
+	b.title, b.authors, b.isbn, b.description = values.title, values.authors, values.isbn, values.description
 	return nil
 }
 

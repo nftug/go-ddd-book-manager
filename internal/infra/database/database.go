@@ -1,8 +1,12 @@
-package common
+package database
 
 import (
+	"database/sql"
+
 	"github.com/samber/do/v2"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
+	"github.com/uptrace/bun/driver/pgdriver"
 )
 
 type DatabaseConfig struct{ DSN string }
@@ -18,4 +22,8 @@ func NewDatabase(i do.Injector) (*Database, error) {
 func NewBunDB(i do.Injector) (*bun.DB, error) {
 	database := do.MustInvoke[*Database](i)
 	return database.db, nil
+}
+
+func OpenDB(dsn string) *bun.DB {
+	return bun.NewDB(sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn))), pgdialect.New())
 }

@@ -27,6 +27,7 @@ func TestRepository(t *testing.T) {
 	userID := uuid.NewV7()
 	audit := common.RestoreEntityAudit(
 		userID,
+		1,
 		common.RestoreAuditRecord(userID, "Original", stamp),
 		option.None[common.AuditRecord](),
 	)
@@ -34,6 +35,7 @@ func TestRepository(t *testing.T) {
 	require.NoError(t, err)
 	updatedAudit := common.RestoreEntityAudit(
 		userID,
+		audit.Version(),
 		audit.Created(),
 		option.Some(common.RestoreAuditRecord(userID, "Original", stamp.Add(time.Second))),
 	)
@@ -48,7 +50,7 @@ func TestRepository(t *testing.T) {
 		return
 	}
 	if !t.Run("save and find user", func(t *testing.T) {
-		require.NoError(t, users.Save(ctx, u))
+		require.NoError(t, users.Create(ctx, u))
 		gotUser, err := users.FindByID(ctx, userID)
 		require.NoError(t, err)
 		require.Equal(t, u, *gotUser)
@@ -56,15 +58,24 @@ func TestRepository(t *testing.T) {
 		return
 	}
 	t.Run("update user", func(t *testing.T) {
-		require.NoError(t, users.Save(ctx, updated))
+		require.NoError(t, users.Update(ctx, updated))
 		gotUser, err := users.FindByID(ctx, userID)
 		require.NoError(t, err)
-		require.Equal(t, updated, *gotUser)
+		require.Equal(t, userWithVersion(updated, 2), *gotUser)
 	})
 	t.Run("delete user", func(t *testing.T) {
-		require.NoError(t, users.Delete(ctx, userID))
-		require.NoError(t, users.Delete(ctx, userID))
+		require.ErrorIs(t, users.Create(ctx, u), common.ErrConflict)
+		require.ErrorIs(t, users.Update(ctx, updated), common.ErrConflict)
+		require.ErrorIs(t, users.Delete(ctx, updated), common.ErrConflict)
+		require.NoError(t, users.Delete(ctx, userWithVersion(updated, 2)))
+		require.ErrorIs(t, users.Delete(ctx, userWithVersion(updated, 2)), common.ErrConflict)
 		_, err := users.FindByID(ctx, userID)
 		require.NoError(t, err)
 	})
+}
+
+func userWithVersion(u user.User, version int64) user.User {
+	audit := common.RestoreEntityAudit(u.ID(), version, u.Audit().Created(), u.Audit().Updated())
+	restored, _ := user.Restore(audit, u.Name(), u.Email(), u.Role())
+	return restored
 }

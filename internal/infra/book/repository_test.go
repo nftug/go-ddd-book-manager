@@ -28,12 +28,13 @@ func TestRepository(t *testing.T) {
 	stamp := time.Now().UTC().Truncate(time.Microsecond)
 	audit := common.RestoreEntityAudit(
 		userID,
+		1,
 		common.RestoreAuditRecord(userID, "Original", stamp),
 		option.None[common.AuditRecord](),
 	)
 	bookID := uuid.NewV7()
 	checkoutID := uuid.NewV7()
-	ba := common.RestoreEntityAudit(bookID, audit.Created(), option.None[common.AuditRecord]())
+	ba := common.RestoreEntityAudit(bookID, 1, audit.Created(), option.None[common.AuditRecord]())
 	ref := user.RestoreReference(userID, "Snapshot")
 	checkout := book.RestoreCheckout(checkoutID, ref, stamp, option.None[time.Time]())
 	b := book.Restore(
@@ -53,14 +54,13 @@ func TestRepository(t *testing.T) {
 		return
 	}
 	if !t.Run("save and find book", func(t *testing.T) {
-		require.NoError(t, books.Save(ctx, b))
+		require.NoError(t, books.Create(ctx, b))
 		got, err := books.FindByID(ctx, bookID)
 		require.NoError(t, err)
 		require.Equal(t, b, *got)
 	}) {
 		return
 	}
-
 	returned := book.RestoreCheckout(checkoutID, ref, stamp, option.Some(stamp.Add(time.Hour)))
 	b = book.Restore(
 		ba,
@@ -71,11 +71,21 @@ func TestRepository(t *testing.T) {
 		ref,
 		[]book.Checkout{returned},
 	)
+	updatedAudit := common.RestoreEntityAudit(bookID, 2, ba.Created(), ba.Updated())
+	expectedUpdated := book.Restore(
+		updatedAudit,
+		"Updated",
+		[]book.Author{book.RestoreAuthor("New", 0)},
+		option.None[string](),
+		option.Some("description"),
+		ref,
+		[]book.Checkout{returned},
+	)
 	if !t.Run("update book", func(t *testing.T) {
-		require.NoError(t, books.Save(ctx, b))
+		require.NoError(t, books.Update(ctx, b))
 		got, err := books.FindByID(ctx, bookID)
 		require.NoError(t, err)
-		require.Equal(t, b, *got)
+		require.Equal(t, expectedUpdated, *got)
 	}) {
 		return
 	}
@@ -89,16 +99,19 @@ func TestRepository(t *testing.T) {
 			ref,
 			nil,
 		)
-		require.Error(t, books.Save(ctx, invalid))
+		require.Error(t, books.Update(ctx, invalid))
 		got, err := books.FindByID(ctx, bookID)
 		require.NoError(t, err)
-		require.Equal(t, b, *got)
+		require.Equal(t, expectedUpdated, *got)
 	}) {
 		return
 	}
 	t.Run("delete book", func(t *testing.T) {
-		require.NoError(t, books.Delete(ctx, bookID))
-		require.NoError(t, books.Delete(ctx, bookID))
+		require.ErrorIs(t, books.Update(ctx, b), common.ErrConflict)
+		require.ErrorIs(t, books.Create(ctx, b), common.ErrConflict)
+		require.ErrorIs(t, books.Delete(ctx, b), common.ErrConflict)
+		require.NoError(t, books.Delete(ctx, expectedUpdated))
+		require.ErrorIs(t, books.Delete(ctx, expectedUpdated), common.ErrConflict)
 		_, err := books.FindByID(ctx, bookID)
 		require.NoError(t, err)
 	})
