@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"fmt"
 )
 
 var (
@@ -10,13 +11,16 @@ var (
 )
 
 type ValidationError struct {
-	code string
+	field string
+	code  string
 }
 
-func NewValidationError(code string) *ValidationError {
-	return &ValidationError{code: code}
+func NewValidationError(field, code string) *ValidationError {
+	return &ValidationError{field: field, code: code}
 }
+
+func (e *ValidationError) Field() string { return e.field }
 
 func (e *ValidationError) Code() string { return e.code }
 
-func (e *ValidationError) Error() string { return e.code }
+func (e *ValidationError) Error() string { return fmt.Sprintf("%s: %s", e.field, e.code) }

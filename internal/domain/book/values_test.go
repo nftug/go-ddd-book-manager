@@ -35,19 +35,19 @@ func TestScalarValueConstructorsAndRestoreFunctions(t *testing.T) {
 
 func TestScalarValueValidationCodesAndBoundaries(t *testing.T) {
 	_, err := book.NewTitle("")
-	assertValidationCode(t, err, "book.title.empty")
+	assertValidationCode(t, err, "empty")
 	if _, err := book.NewTitle(strings.Repeat("a", 255)); err != nil {
 		t.Fatalf("title with 255 runes should be valid: %v", err)
 	}
 	_, err = book.NewTitle(strings.Repeat("あ", 256))
-	assertValidationCode(t, err, "book.title.too_long")
+	assertValidationCode(t, err, "too_long")
 
 	_, err = book.NewISBN("123")
-	assertValidationCode(t, err, "book.isbn.length")
+	assertValidationCode(t, err, "length")
 
 	if _, err := book.NewDescription(strings.Repeat("あ", 1000)); err != nil {
 		t.Fatalf("description with 1000 runes should be valid: %v", err)
 	}
 	_, err = book.NewDescription(strings.Repeat("あ", 1001))
-	assertValidationCode(t, err, "book.description.too_long")
+	assertValidationCode(t, err, "too_long")
 }

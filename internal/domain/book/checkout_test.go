@@ -97,14 +97,14 @@ func TestReturnRequiresAnActiveCheckout(t *testing.T) {
 	)
 	b := newBook(t, ctx, owner)
 
-	assertValidationCode(t, b.Return(ctx), "book.checkout.not_active")
+	assertValidationCode(t, b.Return(ctx), "not_active")
 	if err := b.Checkout(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if err := b.Return(ctx); err != nil {
 		t.Fatal(err)
 	}
-	assertValidationCode(t, b.Return(ctx), "book.checkout.already_returned")
+	assertValidationCode(t, b.Return(ctx), "already_returned")
 }
 
 func TestReturnAllowsOnlyCheckoutOwnerOrAdmin(t *testing.T) {

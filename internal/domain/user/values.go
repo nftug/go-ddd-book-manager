@@ -3,18 +3,16 @@ package user
 import (
 	"net/mail"
 	"unicode/utf8"
-
-	"go-ddd-book-manager/internal/domain/common"
 )
 
 type Name struct{ value string }
 
 func NewName(value string) (Name, error) {
 	if value == "" {
-		return Name{}, common.NewValidationError("user.name.empty")
+		return Name{}, NameEmptyErr
 	}
 	if utf8.RuneCountInString(value) > 100 {
-		return Name{}, common.NewValidationError("user.name.too_long")
+		return Name{}, NameTooLongErr
 	}
 	return Name{value}, nil
 }
@@ -32,7 +30,7 @@ func NewEmail(value string) (Email, error) {
 		return err == nil && address.Address == value
 	}
 	if !validEmail(value) {
-		return Email{}, common.NewValidationError("user.email.invalid")
+		return Email{}, EmailInvalidErr
 	}
 	return Email{value}, nil
 }

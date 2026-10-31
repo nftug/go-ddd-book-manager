@@ -24,8 +24,8 @@ func TestAuthorNameConstructorRestoreAndValidation(t *testing.T) {
 		value string
 		want  string
 	}{
-		{name: "empty", value: "", want: "book.author.empty"},
-		{name: "too long", value: strings.Repeat("あ", 256), want: "book.author.too_long"},
+		{name: "empty", value: "", want: "empty"},
+		{name: "too long", value: strings.Repeat("あ", 256), want: "too_long"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
 			_, err := book.NewAuthorName(tc.value)
@@ -68,9 +68,9 @@ func TestAuthorListConstructorOrderingAndValidation(t *testing.T) {
 		input []string
 		want  string
 	}{
-		{name: "empty list", input: nil, want: "book.authors.empty"},
-		{name: "duplicate names", input: []string{"Aki", "Aki"}, want: "book.authors.duplicate"},
-		{name: "invalid name", input: []string{"Aki", ""}, want: "book.author.empty"},
+		{name: "empty list", input: nil, want: "empty"},
+		{name: "duplicate names", input: []string{"Aki", "Aki"}, want: "duplicate"},
+		{name: "invalid name", input: []string{"Aki", ""}, want: "empty"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := book.NewAuthorList(tc.input)

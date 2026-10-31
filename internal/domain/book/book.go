@@ -96,7 +96,7 @@ func (b *Book) ChangeOwner(ctx common.DomainContext, owner user.Reference) error
 		return common.ErrForbidden
 	}
 	if b.owner == owner {
-		return common.NewValidationError("book.owner.unchanged")
+		return OwnerUnchangedErr
 	}
 	if err := b.audit.Update(ctx, ownerChangePermission{actor: ctx.Actor()}); err != nil {
 		return err

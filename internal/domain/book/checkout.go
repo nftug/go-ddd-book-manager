@@ -62,7 +62,7 @@ func (l CheckoutList) latest() (Checkout, bool) {
 
 func (l *CheckoutList) checkout(ctx common.DomainContext) error {
 	if l.IsCheckedOut() {
-		return common.NewValidationError("book.checkout.already_active")
+		return CheckoutAlreadyActiveErr
 	}
 	actor := ctx.Actor()
 	if actor.IsSystem() {
@@ -80,10 +80,10 @@ func (l *CheckoutList) checkout(ctx common.DomainContext) error {
 func (l *CheckoutList) returnBook(ctx common.DomainContext) error {
 	latest, ok := l.latest()
 	if !ok {
-		return common.NewValidationError("book.checkout.not_active")
+		return CheckoutNotActiveErr
 	}
 	if !latest.IsActive() {
-		return common.NewValidationError("book.checkout.already_returned")
+		return CheckoutAlreadyReturnedErr
 	}
 	actor := ctx.Actor()
 	if actor.IsSystem() || (latest.checkedOutTo.ID() != actor.ID() && !actor.IsAdmin()) {
@@ -97,5 +97,5 @@ func (l *CheckoutList) returnBook(ctx common.DomainContext) error {
 		l.values[index].returnedAt = option.Some(ctx.UTCNow())
 		return nil
 	}
-	return common.NewValidationError("book.checkout.not_active")
+	return CheckoutNotActiveErr
 }

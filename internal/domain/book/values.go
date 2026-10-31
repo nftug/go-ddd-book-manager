@@ -2,18 +2,16 @@ package book
 
 import (
 	"unicode/utf8"
-
-	"go-ddd-book-manager/internal/domain/common"
 )
 
 type Title struct{ value string }
 
 func NewTitle(value string) (Title, error) {
 	if value == "" {
-		return Title{}, common.NewValidationError("book.title.empty")
+		return Title{}, TitleEmptyErr
 	}
 	if utf8.RuneCountInString(value) > 255 {
-		return Title{}, common.NewValidationError("book.title.too_long")
+		return Title{}, TitleTooLongErr
 	}
 	return Title{value}, nil
 }
@@ -24,7 +22,7 @@ type ISBN struct{ value string }
 
 func NewISBN(value string) (ISBN, error) {
 	if len(value) != 13 {
-		return ISBN{}, common.NewValidationError("book.isbn.length")
+		return ISBN{}, ISBNLengthErr
 	}
 	return ISBN{value: value}, nil
 }
@@ -35,7 +33,7 @@ type Description struct{ value string }
 
 func NewDescription(value string) (Description, error) {
 	if utf8.RuneCountInString(value) > 1000 {
-		return Description{}, common.NewValidationError("book.description.too_long")
+		return Description{}, DescriptionTooLongErr
 	}
 	return Description{value: value}, nil
 }
