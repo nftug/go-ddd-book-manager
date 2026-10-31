@@ -2,7 +2,9 @@
   "[go]": {
     "editor.formatOnSave": false
   },
-  "go.formatTool": "gofmt",
+  "gopls": {
+    "buildFlags": ["-tags=integration"]
+  },
   "emeraldwalk.runonsave": {
     "commands": [
       {

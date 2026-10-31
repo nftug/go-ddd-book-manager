@@ -12,13 +12,16 @@ type User struct {
 	role  common.ActorRole
 }
 
-func Restore(audit common.EntityAudit, name, email string, role common.ActorRole) User {
+func Restore(audit common.EntityAudit, name, email string, role common.ActorRole) (User, error) {
+	if err := validateRole(role); err != nil {
+		return User{}, err
+	}
 	return User{
 		audit: audit,
 		name:  RestoreName(name),
 		email: RestoreEmail(email),
 		role:  role,
-	}
+	}, nil
 }
 
 func New(
@@ -28,8 +31,8 @@ func New(
 	email Email,
 	role common.ActorRole,
 ) (User, error) {
-	if !role.IsValid() || role == common.SystemRole {
-		return User{}, RoleInvalidErr
+	if err := validateRole(role); err != nil {
+		return User{}, err
 	}
 	audit, err := common.NewEntityAuditWithID(ctx, userSyncPermission{actor: ctx.Actor()}, id)
 	if err != nil {
@@ -54,8 +57,8 @@ func (u *User) Sync(ctx common.DomainContext, name Name, email Email, role commo
 	if err := common.EnsureCanUpdate(permission); err != nil {
 		return err
 	}
-	if !role.IsValid() || role == common.SystemRole {
-		return RoleInvalidErr
+	if err := validateRole(role); err != nil {
+		return err
 	}
 	if u.name == name && u.email == email && u.role == role {
 		return nil
@@ -70,4 +73,11 @@ func (u *User) Sync(ctx common.DomainContext, name Name, email Email, role commo
 func (u User) ValidateDeletion(actor common.Actor) error {
 	permission := userSyncPermission{actor: actor}
 	return common.EnsureCanDelete(permission)
+}
+
+func validateRole(role common.ActorRole) error {
+	if !role.IsValid() || role == common.SystemRole {
+		return RoleInvalidErr
+	}
+	return nil
 }

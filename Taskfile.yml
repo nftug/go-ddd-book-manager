@@ -44,3 +44,28 @@ tasks:
     cmds:
       - mkdir -p bin
       - go build -trimpath -ldflags="-s -w" -o bin/app ./cmd
+
+  migrate-up:
+    desc: Apply SQL migrations (requires DATABASE_URL)
+    cmds:
+      - go run ./cmd/migrate up
+
+  migrate-down:
+    desc: Roll back the last SQL migration group (requires DATABASE_URL)
+    cmds:
+      - go run ./cmd/migrate down
+
+  migrate-create:
+    desc: Create SQL migration files (task migrate-create -- name)
+    cmds:
+      - go run ./cmd/migrate create {{.CLI_ARGS}}
+
+  test-integration:
+    desc: Run PostgreSQL integration tests with Dockertest
+    vars:
+      docker_host:
+        sh: docker context inspect | python3 -c 'import json, sys; print(json.load(sys.stdin)[0]["Endpoints"]["docker"]["Host"])'
+    env:
+      DOCKER_HOST: '{{.docker_host}}'
+    cmds:
+      - go test -tags=integration ./internal/infra/...
