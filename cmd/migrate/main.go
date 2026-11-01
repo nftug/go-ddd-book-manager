@@ -22,17 +22,16 @@ func run() error {
 			"usage: migrate <up|down|create> [name]; DATABASE_URL is required for up/down",
 		)
 	}
-	db := database.OpenDB(os.Getenv("DATABASE_URL"))
-	defer db.Close()
-	m, err := migrations.New(db)
-	if err != nil {
-		return err
-	}
+
 	ctx := context.Background()
 	switch os.Args[1] {
 	case "create":
 		if len(os.Args) != 3 {
 			return fmt.Errorf("usage: migrate create <name>")
+		}
+		m, err := migrations.New(nil)
+		if err != nil {
+			return err
 		}
 		files, err := m.CreateSQLMigrations(ctx, os.Args[2])
 		if err != nil {
@@ -43,8 +42,15 @@ func run() error {
 		}
 		return nil
 	case "up", "down":
-		if os.Getenv("DATABASE_URL") == "" {
+		dsn := os.Getenv("DATABASE_URL")
+		if dsn == "" {
 			return fmt.Errorf("DATABASE_URL is required")
+		}
+		db := database.OpenDB(dsn)
+		defer db.Close()
+		m, err := migrations.New(db)
+		if err != nil {
+			return err
 		}
 		if err = m.Init(ctx); err != nil {
 			return err

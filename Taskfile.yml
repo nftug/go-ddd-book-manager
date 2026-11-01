@@ -1,5 +1,9 @@
 version: '3'
 
+vars:
+  DEV_DATABASE_URL: 'postgres://{{.DATABASE_USERNAME | default "bookmanager"}}:{{.DATABASE_PASSWORD | default "bookmanager"}}@localhost:{{.DATABASE_PORT_OUTER | default "5432"}}/{{.DATABASE_NAME | default "bookmanager"}}?sslmode=disable'
+  DEV_OIDC_ISSUER: 'http://localhost:{{.KEYCLOAK_PORT_OUTER | default "8081"}}/realms/book-manager'
+
 tasks:
   generate:
     desc: Generate code with go generate directives
@@ -34,6 +38,10 @@ tasks:
     deps:
       - generate
       - docker-up
+    env:
+      DATABASE_URL: '{{.DATABASE_URL | default .DEV_DATABASE_URL}}'
+      OIDC_ISSUER: '{{.OIDC_ISSUER | default .DEV_OIDC_ISSUER}}'
+      OIDC_AUDIENCE: '{{.OIDC_AUDIENCE | default "book-manager-api"}}'
     cmds:
       - go run ./cmd
 
@@ -46,7 +54,9 @@ tasks:
       - go build -trimpath -ldflags="-s -w" -o bin/app ./cmd
 
   migrate-up:
-    desc: Apply SQL migrations (requires DATABASE_URL)
+    desc: Apply SQL migrations
+    env:
+      DATABASE_URL: '{{.DATABASE_URL | default .DEV_DATABASE_URL}}'
     cmds:
       - go run ./cmd/migrate up
 

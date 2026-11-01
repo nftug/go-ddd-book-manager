@@ -2,13 +2,13 @@ services:
   postgres:
     image: postgres:18-alpine
     ports:
-      - "${DATABASE_PORT_OUTER}:${DATABASE_PORT_INNER}"
+      - "${DATABASE_PORT_OUTER:-5432}:${DATABASE_PORT_INNER:-5432}"
     environment:
-      POSTGRES_USER: ${DATABASE_USERNAME}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-      POSTGRES_DB: ${DATABASE_NAME}
+      POSTGRES_USER: ${DATABASE_USERNAME:-bookmanager}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-bookmanager}
+      POSTGRES_DB: ${DATABASE_NAME:-bookmanager}
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.5
@@ -21,7 +21,7 @@ services:
       KC_HOSTNAME: localhost
     command: ["start-dev", "--import-realm"]
     ports:
-      - "${KEYCLOAK_PORT_OUTER}:8080"
+      - "${KEYCLOAK_PORT_OUTER:-8081}:8080"
     volumes:
       - keycloak_data:/opt/keycloak/data
       - ./realm.json:/opt/keycloak/data/import/realm.json:ro

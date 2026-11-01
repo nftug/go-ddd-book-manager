@@ -36,8 +36,7 @@ func (s *queryService) FindByID(
 			if err != nil {
 				return database.IgnoreNoRows(err)
 			}
-			b := m.toResponse(actor)
-			out = &b
+			out = new(m.toResponse(actor))
 			return nil
 		},
 	)
@@ -85,13 +84,23 @@ func filterBooks(q *bun.SelectQuery, f dto.BookQuery) *bun.SelectQuery {
 	}
 	if f.Author != nil {
 		q = q.Where(
-			"EXISTS (SELECT 1 FROM book_authors a WHERE a.book_id = model.id AND a.name ILIKE ?)",
+			`EXISTS (
+				SELECT 1
+				FROM book_authors a
+				WHERE a.book_id = model.id AND a.name ILIKE ?
+			)`,
 			database.LikeContainsPattern(*f.Author),
 		)
 	}
 	if f.CheckedOut != nil {
 		q = q.Where(
-			"COALESCE((SELECT c.returned_at IS NULL FROM book_checkouts c WHERE c.book_id = model.id ORDER BY c.checked_out_at DESC, c.position DESC LIMIT 1), FALSE) = ?",
+			`COALESCE((
+				SELECT c.returned_at IS NULL
+				FROM book_checkouts c
+				WHERE c.book_id = model.id
+				ORDER BY c.checked_out_at DESC, c.position DESC
+				LIMIT 1
+			), FALSE) = ?`,
 			*f.CheckedOut,
 		)
 	}
