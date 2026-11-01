@@ -28,7 +28,9 @@ func NewHandler(i do.Injector) (*Handler, error) {
 }
 
 // sync godoc
+// @ID SyncCurrentUser
 // @Summary Synchronize the current user
+// @Tags Users
 // @Produce json
 // @Success 200 {object} dto.UserResponse
 // @Failure 401 {object} handler.ErrorResponse "Unauthorized"
@@ -53,7 +55,9 @@ func (h *Handler) sync(c *echo.Context) error {
 }
 
 // details godoc
+// @ID GetCurrentUser
 // @Summary Get the current user
+// @Tags Users
 // @Produce json
 // @Success 200 {object} dto.UserResponse
 // @Failure 401 {object} handler.ErrorResponse "Unauthorized"

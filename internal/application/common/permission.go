@@ -3,8 +3,8 @@ package common
 import dc "go-ddd-book-manager/internal/domain/common"
 
 type PermissionResponse struct {
-	CanUpdate bool `json:"can_update"`
-	CanDelete bool `json:"can_delete"`
+	CanUpdate bool `json:"canUpdate"`
+	CanDelete bool `json:"canDelete"`
 } // @name PermissionResponse
 
 // PermissionFromDomain maps the domain policy to the permissions exposed by read use cases.

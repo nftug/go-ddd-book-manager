@@ -36,7 +36,7 @@
                     "page": {
                         "type": "integer"
                     },
-                    "page_size": {
+                    "pageSize": {
                         "type": "integer"
                     },
                     "total": {
@@ -78,7 +78,7 @@
                         "type": "array",
                         "uniqueItems": false
                     },
-                    "checked_out": {
+                    "checkedOut": {
                         "type": "boolean"
                     },
                     "description": {
@@ -115,7 +115,7 @@
                     "page": {
                         "type": "integer"
                     },
-                    "page_size": {
+                    "pageSize": {
                         "type": "integer"
                     },
                     "total": {
@@ -126,18 +126,18 @@
             },
             "CheckoutResponse": {
                 "properties": {
-                    "checked_out_at": {
+                    "checkedOutAt": {
                         "format": "date-time",
                         "type": "string"
                     },
-                    "checked_out_to": {
+                    "checkedOutTo": {
                         "$ref": "#/components/schemas/UserReference"
                     },
                     "id": {
                         "format": "uuid",
                         "type": "string"
                     },
-                    "returned_at": {
+                    "returnedAt": {
                         "format": "date-time",
                         "type": "string"
                     }
@@ -178,10 +178,10 @@
             },
             "PermissionResponse": {
                 "properties": {
-                    "can_delete": {
+                    "canDelete": {
                         "type": "boolean"
                     },
-                    "can_update": {
+                    "canUpdate": {
                         "type": "boolean"
                     }
                 },
@@ -237,8 +237,9 @@
         "url": ""
     },
     "paths": {
-        "/users": {
+        "/books": {
             "get": {
+                "operationId": "ListBooks",
                 "parameters": [
                     {
                         "description": "Title",
@@ -336,9 +337,13 @@
                         "BearerAuth": []
                     }
                 ],
-                "summary": "List books"
+                "summary": "List books",
+                "tags": [
+                    "Books"
+                ]
             },
             "post": {
+                "operationId": "CreateBook",
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -427,129 +432,15 @@
                         "BearerAuth": []
                     }
                 ],
-                "summary": "Create a book"
+                "summary": "Create a book",
+                "tags": [
+                    "Books"
+                ]
             }
         },
-        "/users/me": {
-            "get": {
-                "responses": {
-                    "200": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/UserResponse"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    },
-                    "401": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Unauthorized",
-                        "headers": {
-                            "WWW-Authenticate": {
-                                "description": "Bearer",
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Not Found"
-                    },
-                    "500": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Internal Server Error"
-                    }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "summary": "Get the current user"
-            },
-            "post": {
-                "responses": {
-                    "200": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/UserResponse"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    },
-                    "401": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Unauthorized",
-                        "headers": {
-                            "WWW-Authenticate": {
-                                "description": "Bearer",
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "409": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Conflict"
-                    },
-                    "500": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Internal Server Error"
-                    }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "summary": "Synchronize the current user"
-            }
-        },
-        "/users/{book_id}": {
+        "/books/{book_id}": {
             "delete": {
+                "operationId": "DeleteBook",
                 "parameters": [
                     {
                         "description": "Book ID",
@@ -640,9 +531,13 @@
                         "BearerAuth": []
                     }
                 ],
-                "summary": "Delete a book"
+                "summary": "Delete a book",
+                "tags": [
+                    "Books"
+                ]
             },
             "get": {
+                "operationId": "GetBook",
                 "parameters": [
                     {
                         "description": "Book ID",
@@ -720,9 +615,13 @@
                         "BearerAuth": []
                     }
                 ],
-                "summary": "Get book details"
+                "summary": "Get book details",
+                "tags": [
+                    "Books"
+                ]
             },
             "put": {
+                "operationId": "UpdateBook",
                 "parameters": [
                     {
                         "description": "Book ID",
@@ -836,11 +735,15 @@
                         "BearerAuth": []
                     }
                 ],
-                "summary": "Update a book"
+                "summary": "Update a book",
+                "tags": [
+                    "Books"
+                ]
             }
         },
-        "/users/{book_id}/checkouts": {
+        "/books/{book_id}/checkouts": {
             "get": {
+                "operationId": "GetBookCheckoutHistory",
                 "parameters": [
                     {
                         "description": "Book ID",
@@ -944,9 +847,13 @@
                         "BearerAuth": []
                     }
                 ],
-                "summary": "Get checkout history"
+                "summary": "Get checkout history",
+                "tags": [
+                    "Books"
+                ]
             },
             "post": {
+                "operationId": "CheckoutBook",
                 "parameters": [
                     {
                         "description": "Book ID",
@@ -1027,11 +934,15 @@
                         "BearerAuth": []
                     }
                 ],
-                "summary": "Check out a book"
+                "summary": "Check out a book",
+                "tags": [
+                    "Books"
+                ]
             }
         },
-        "/users/{book_id}/owner": {
+        "/books/{book_id}/owner": {
             "put": {
+                "operationId": "ChangeBookOwner",
                 "parameters": [
                     {
                         "description": "Book ID",
@@ -1145,11 +1056,15 @@
                         "BearerAuth": []
                     }
                 ],
-                "summary": "Change the owner of a book"
+                "summary": "Change the owner of a book",
+                "tags": [
+                    "Books"
+                ]
             }
         },
-        "/users/{book_id}/return": {
+        "/books/{book_id}/return": {
             "post": {
+                "operationId": "ReturnBook",
                 "parameters": [
                     {
                         "description": "Book ID",
@@ -1240,7 +1155,136 @@
                         "BearerAuth": []
                     }
                 ],
-                "summary": "Return a book"
+                "summary": "Return a book",
+                "tags": [
+                    "Books"
+                ]
+            }
+        },
+        "/users/me": {
+            "get": {
+                "operationId": "GetCurrentUser",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized",
+                        "headers": {
+                            "WWW-Authenticate": {
+                                "description": "Bearer",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Get the current user",
+                "tags": [
+                    "Users"
+                ]
+            },
+            "post": {
+                "operationId": "SyncCurrentUser",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized",
+                        "headers": {
+                            "WWW-Authenticate": {
+                                "description": "Bearer",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Conflict"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Synchronize the current user",
+                "tags": [
+                    "Users"
+                ]
             }
         }
     },

@@ -43,7 +43,9 @@ func NewHandler(i do.Injector) (*Handler, error) {
 }
 
 // list godoc
+// @ID ListBooks
 // @Summary List books
+// @Tags Books
 // @Produce json
 // @Param title query string false "Title"
 // @Param author query string false "Author"
@@ -56,7 +58,7 @@ func NewHandler(i do.Injector) (*Handler, error) {
 // @Failure 500 {object} handler.ErrorResponse "Internal Server Error"
 // @Header 401 {string} WWW-Authenticate "Bearer"
 // @Security BearerAuth
-// @Router /users [get]
+// @Router /books [get]
 func (h *Handler) list(c *echo.Context) error {
 	return handler.JSON(
 		c,
@@ -72,7 +74,9 @@ func (h *Handler) list(c *echo.Context) error {
 }
 
 // create godoc
+// @ID CreateBook
 // @Summary Create a book
+// @Tags Books
 // @Produce json
 // @Accept json
 // @Param request body dto.BookRequest true "Book"
@@ -84,7 +88,7 @@ func (h *Handler) list(c *echo.Context) error {
 // @Failure 415 {object} handler.ErrorResponse "Unsupported Media Type"
 // @Header 401 {string} WWW-Authenticate "Bearer"
 // @Security BearerAuth
-// @Router /users [post]
+// @Router /books [post]
 func (h *Handler) create(c *echo.Context) error {
 	return handler.JSON(
 		c,
@@ -100,7 +104,9 @@ func (h *Handler) create(c *echo.Context) error {
 }
 
 // details godoc
+// @ID GetBook
 // @Summary Get book details
+// @Tags Books
 // @Produce json
 // @Param book_id path string true "Book ID" format(uuid)
 // @Success 200 {object} dto.BookResponse
@@ -110,7 +116,7 @@ func (h *Handler) create(c *echo.Context) error {
 // @Failure 500 {object} handler.ErrorResponse "Internal Server Error"
 // @Header 401 {string} WWW-Authenticate "Bearer"
 // @Security BearerAuth
-// @Router /users/{book_id} [get]
+// @Router /books/{book_id} [get]
 func (h *Handler) details(c *echo.Context) error {
 	return handler.JSON(
 		c,
@@ -126,7 +132,9 @@ func (h *Handler) details(c *echo.Context) error {
 }
 
 // update godoc
+// @ID UpdateBook
 // @Summary Update a book
+// @Tags Books
 // @Produce json
 // @Accept json
 // @Param book_id path string true "Book ID" format(uuid)
@@ -141,7 +149,7 @@ func (h *Handler) details(c *echo.Context) error {
 // @Failure 415 {object} handler.ErrorResponse "Unsupported Media Type"
 // @Header 401 {string} WWW-Authenticate "Bearer"
 // @Security BearerAuth
-// @Router /users/{book_id} [put]
+// @Router /books/{book_id} [put]
 func (h *Handler) update(c *echo.Context) error {
 	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
@@ -157,7 +165,9 @@ func (h *Handler) update(c *echo.Context) error {
 }
 
 // delete godoc
+// @ID DeleteBook
 // @Summary Delete a book
+// @Tags Books
 // @Produce json
 // @Param book_id path string true "Book ID" format(uuid)
 // @Success 204 "No Content"
@@ -169,7 +179,7 @@ func (h *Handler) update(c *echo.Context) error {
 // @Failure 500 {object} handler.ErrorResponse "Internal Server Error"
 // @Header 401 {string} WWW-Authenticate "Bearer"
 // @Security BearerAuth
-// @Router /users/{book_id} [delete]
+// @Router /books/{book_id} [delete]
 func (h *Handler) delete(c *echo.Context) error {
 	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
@@ -181,7 +191,9 @@ func (h *Handler) delete(c *echo.Context) error {
 }
 
 // changeOwner godoc
+// @ID ChangeBookOwner
 // @Summary Change the owner of a book
+// @Tags Books
 // @Produce json
 // @Accept json
 // @Param book_id path string true "Book ID" format(uuid)
@@ -196,7 +208,7 @@ func (h *Handler) delete(c *echo.Context) error {
 // @Failure 415 {object} handler.ErrorResponse "Unsupported Media Type"
 // @Header 401 {string} WWW-Authenticate "Bearer"
 // @Security BearerAuth
-// @Router /users/{book_id}/owner [put]
+// @Router /books/{book_id}/owner [put]
 func (h *Handler) changeOwner(c *echo.Context) error {
 	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
@@ -212,7 +224,9 @@ func (h *Handler) changeOwner(c *echo.Context) error {
 }
 
 // checkout godoc
+// @ID CheckoutBook
 // @Summary Check out a book
+// @Tags Books
 // @Produce json
 // @Param book_id path string true "Book ID" format(uuid)
 // @Success 204 "No Content"
@@ -223,7 +237,7 @@ func (h *Handler) changeOwner(c *echo.Context) error {
 // @Failure 500 {object} handler.ErrorResponse "Internal Server Error"
 // @Header 401 {string} WWW-Authenticate "Bearer"
 // @Security BearerAuth
-// @Router /users/{book_id}/checkouts [post]
+// @Router /books/{book_id}/checkouts [post]
 func (h *Handler) checkout(c *echo.Context) error {
 	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
@@ -235,7 +249,9 @@ func (h *Handler) checkout(c *echo.Context) error {
 }
 
 // returnBook godoc
+// @ID ReturnBook
 // @Summary Return a book
+// @Tags Books
 // @Produce json
 // @Param book_id path string true "Book ID" format(uuid)
 // @Success 204 "No Content"
@@ -247,7 +263,7 @@ func (h *Handler) checkout(c *echo.Context) error {
 // @Failure 500 {object} handler.ErrorResponse "Internal Server Error"
 // @Header 401 {string} WWW-Authenticate "Bearer"
 // @Security BearerAuth
-// @Router /users/{book_id}/return [post]
+// @Router /books/{book_id}/return [post]
 func (h *Handler) returnBook(c *echo.Context) error {
 	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
@@ -259,7 +275,9 @@ func (h *Handler) returnBook(c *echo.Context) error {
 }
 
 // history godoc
+// @ID GetBookCheckoutHistory
 // @Summary Get checkout history
+// @Tags Books
 // @Produce json
 // @Param book_id path string true "Book ID" format(uuid)
 // @Param page query integer false "Page number"
@@ -272,7 +290,7 @@ func (h *Handler) returnBook(c *echo.Context) error {
 // @Failure 500 {object} handler.ErrorResponse "Internal Server Error"
 // @Header 401 {string} WWW-Authenticate "Bearer"
 // @Security BearerAuth
-// @Router /users/{book_id}/checkouts [get]
+// @Router /books/{book_id}/checkouts [get]
 func (h *Handler) history(c *echo.Context) error {
 	return handler.JSON(
 		c,
