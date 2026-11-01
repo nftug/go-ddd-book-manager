@@ -8,7 +8,7 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/require"
 	dc "go-ddd-book-manager/internal/domain/common"
 	"go-ddd-book-manager/internal/webapi/auth"
@@ -38,11 +38,11 @@ func TestExecuteWithActor(t *testing.T) {
 	}{{"success", nil, http.StatusCreated}, {"error", expectedErr, http.StatusTeapot}} {
 		t.Run(tc.name, func(t *testing.T) {
 			e := echo.New()
-			e.HTTPErrorHandler = func(err error, c echo.Context) {
+			e.HTTPErrorHandler = func(c *echo.Context, err error) {
 				require.ErrorIs(t, err, expectedErr)
 				_ = c.NoContent(http.StatusTeapot)
 			}
-			e.GET("/", func(c echo.Context) error {
+			e.GET("/", func(c *echo.Context) error {
 				return handler.JSON(
 					c,
 					http.StatusCreated,
@@ -83,14 +83,14 @@ func TestNoContentAndMissingActor(t *testing.T) {
 	id := uuid.MustParse("00000000-0000-4000-8000-000000000001")
 	actor := dc.NewActor(id, "User", dc.UserRole)
 	expected := errors.New("failed")
-	e.POST("/", func(c echo.Context) error {
+	e.POST("/", func(c *echo.Context) error {
 		return handler.NoContent(c, func(ctx context.Context, got dc.Actor) error {
 			require.Equal(t, actor, got)
 			require.Equal(t, "value", ctx.Value(contextKey{}))
 			return nil
 		})
 	}, auth.RequireIdentity(verifier{id}), auth.RequireUser(resolver{actor}))
-	e.POST("/error", func(c echo.Context) error {
+	e.POST("/error", func(c *echo.Context) error {
 		return handler.NoContent(c, func(context.Context, dc.Actor) error { return expected })
 	}, auth.RequireIdentity(verifier{id}), auth.RequireUser(resolver{actor}))
 	for _, tc := range []struct {
@@ -119,11 +119,11 @@ func TestIdentityJSON(t *testing.T) {
 	}{{"success", nil, http.StatusOK}, {"error", expectedErr, http.StatusTeapot}} {
 		t.Run(tc.name, func(t *testing.T) {
 			e := echo.New()
-			e.HTTPErrorHandler = func(err error, c echo.Context) {
+			e.HTTPErrorHandler = func(c *echo.Context, err error) {
 				require.ErrorIs(t, err, expectedErr)
 				_ = c.NoContent(http.StatusTeapot)
 			}
-			e.POST("/", func(c echo.Context) error {
+			e.POST("/", func(c *echo.Context) error {
 				return handler.IdentityJSON(
 					c,
 					http.StatusOK,

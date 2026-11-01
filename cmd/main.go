@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -16,7 +15,7 @@ import (
 	"go-ddd-book-manager/internal/webapi"
 	"go-ddd-book-manager/internal/webapi/auth"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/samber/do/v2"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
@@ -44,17 +43,18 @@ func run() error {
 	webapi.Inject(i, auth.Config{Issuer: issuer, Audience: audience})
 	defer i.Shutdown()
 
-	e, err := do.Invoke[*echo.Echo](i)
-	if err != nil {
-		return fmt.Errorf("initialize web API: %w", err)
-	}
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	server := &http.Server{Addr: addr, Handler: do.MustInvoke[*echo.Echo](i)}
+	return serve(ctx, server, server.ListenAndServe)
+}
+
+func serve(ctx context.Context, server *http.Server, listenAndServe func() error) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		if err := e.Start(addr); errors.Is(err, http.ErrServerClosed) {
+		err := listenAndServe()
+		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
 		return err
@@ -66,7 +66,7 @@ func run() error {
 			10*time.Second,
 		)
 		defer cancel()
-		return e.Shutdown(shutdownCtx)
+		return server.Shutdown(shutdownCtx)
 	})
 
 	return g.Wait()

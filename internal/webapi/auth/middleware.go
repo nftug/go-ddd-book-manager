@@ -7,12 +7,12 @@ import (
 	dc "go-ddd-book-manager/internal/domain/common"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 func RequireIdentity(v TokenVerifier) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			h := strings.Fields(c.Request().Header.Get("Authorization"))
 			if len(h) != 2 || !strings.EqualFold(h[0], "Bearer") {
 				return ErrUnauthorized
@@ -31,7 +31,7 @@ func RequireIdentity(v TokenVerifier) echo.MiddlewareFunc {
 
 func RequireUser(r us.ResolveActor) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			identity, err := IdentityFrom(c)
 			if err != nil {
 				return err

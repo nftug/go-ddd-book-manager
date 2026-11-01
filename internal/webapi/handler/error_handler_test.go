@@ -10,7 +10,7 @@ import (
 	dc "go-ddd-book-manager/internal/domain/common"
 	"go-ddd-book-manager/internal/webapi/auth"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,7 +66,7 @@ func TestErrorHandlerResponses(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := echo.New()
 			e.HTTPErrorHandler = ErrorHandler
-			e.GET("/", func(echo.Context) error { return tt.err })
+			e.GET("/", func(*echo.Context) error { return tt.err })
 			w := httptest.NewRecorder()
 			e.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
 			require.Equal(t, tt.status, w.Code)
@@ -83,8 +83,8 @@ func TestErrorHandlerResponses(t *testing.T) {
 func TestErrorHandlerHeadAndCommittedResponse(t *testing.T) {
 	e := echo.New()
 	e.HTTPErrorHandler = ErrorHandler
-	e.HEAD("/", func(echo.Context) error { return auth.ErrUnauthorized })
-	e.GET("/", func(c echo.Context) error {
+	e.HEAD("/", func(*echo.Context) error { return auth.ErrUnauthorized })
+	e.GET("/", func(c *echo.Context) error {
 		if err := c.String(http.StatusAccepted, "already sent"); err != nil {
 			return err
 		}
@@ -101,4 +101,28 @@ func TestErrorHandlerHeadAndCommittedResponse(t *testing.T) {
 	e.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
 	require.Equal(t, http.StatusAccepted, w.Code)
 	require.Equal(t, "already sent", w.Body.String())
+}
+
+func TestErrorHandlerRouterErrors(t *testing.T) {
+	e := echo.New()
+	e.HTTPErrorHandler = ErrorHandler
+	e.GET("/registered", func(c *echo.Context) error { return c.NoContent(http.StatusNoContent) })
+	for _, tt := range []struct {
+		method, path string
+		status       int
+	}{
+		{http.MethodGet, "/missing", http.StatusNotFound},
+		{http.MethodPost, "/registered", http.StatusMethodNotAllowed},
+	} {
+		t.Run(tt.method+tt.path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, httptest.NewRequest(tt.method, tt.path, nil))
+			require.Equal(t, tt.status, w.Code)
+			require.JSONEq(
+				t,
+				fmt.Sprintf(`{"message":%q}`, http.StatusText(tt.status)),
+				w.Body.String(),
+			)
+		})
+	}
 }

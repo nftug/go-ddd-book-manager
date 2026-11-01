@@ -7,11 +7,11 @@ import (
 	dc "go-ddd-book-manager/internal/domain/common"
 	"go-ddd-book-manager/internal/webapi/auth"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 func JSON[T any](
-	c echo.Context,
+	c *echo.Context,
 	status int,
 	execute func(context.Context, dc.Actor) (T, error),
 ) error {
@@ -25,7 +25,7 @@ func JSON[T any](
 }
 
 func IdentityJSON[T any](
-	c echo.Context,
+	c *echo.Context,
 	status int,
 	execute func(context.Context, auth.Identity) (T, error),
 ) error {
@@ -38,7 +38,7 @@ func IdentityJSON[T any](
 	})
 }
 
-func jsonResult[T any](c echo.Context, status int, execute func() (T, error)) error {
+func jsonResult[T any](c *echo.Context, status int, execute func() (T, error)) error {
 	result, err := execute()
 	if err != nil {
 		return err
@@ -46,7 +46,7 @@ func jsonResult[T any](c echo.Context, status int, execute func() (T, error)) er
 	return c.JSON(status, result)
 }
 
-func NoContent(c echo.Context, execute func(context.Context, dc.Actor) error) error {
+func NoContent(c *echo.Context, execute func(context.Context, dc.Actor) error) error {
 	actor, err := auth.ActorFrom(c)
 	if err != nil {
 		return err

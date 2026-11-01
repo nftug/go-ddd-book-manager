@@ -12,7 +12,7 @@ import (
 	"go-ddd-book-manager/internal/webapi/bind"
 	"go-ddd-book-manager/internal/webapi/handler"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/samber/do/v2"
 )
 
@@ -42,7 +42,7 @@ func NewHandler(i do.Injector) (*Handler, error) {
 	}, nil
 }
 
-func (h *Handler) list(c echo.Context) error {
+func (h *Handler) list(c *echo.Context) error {
 	return handler.JSON(
 		c,
 		http.StatusOK,
@@ -56,7 +56,7 @@ func (h *Handler) list(c echo.Context) error {
 	)
 }
 
-func (h *Handler) create(c echo.Context) error {
+func (h *Handler) create(c *echo.Context) error {
 	return handler.JSON(
 		c,
 		http.StatusCreated,
@@ -70,7 +70,7 @@ func (h *Handler) create(c echo.Context) error {
 	)
 }
 
-func (h *Handler) details(c echo.Context) error {
+func (h *Handler) details(c *echo.Context) error {
 	return handler.JSON(
 		c,
 		http.StatusOK,
@@ -84,7 +84,7 @@ func (h *Handler) details(c echo.Context) error {
 	)
 }
 
-func (h *Handler) update(c echo.Context) error {
+func (h *Handler) update(c *echo.Context) error {
 	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
 		if err != nil {
@@ -98,7 +98,7 @@ func (h *Handler) update(c echo.Context) error {
 	})
 }
 
-func (h *Handler) delete(c echo.Context) error {
+func (h *Handler) delete(c *echo.Context) error {
 	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
 		if err != nil {
@@ -108,7 +108,7 @@ func (h *Handler) delete(c echo.Context) error {
 	})
 }
 
-func (h *Handler) changeOwner(c echo.Context) error {
+func (h *Handler) changeOwner(c *echo.Context) error {
 	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
 		if err != nil {
@@ -122,7 +122,7 @@ func (h *Handler) changeOwner(c echo.Context) error {
 	})
 }
 
-func (h *Handler) checkout(c echo.Context) error {
+func (h *Handler) checkout(c *echo.Context) error {
 	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
 		if err != nil {
@@ -132,7 +132,7 @@ func (h *Handler) checkout(c echo.Context) error {
 	})
 }
 
-func (h *Handler) returnBook(c echo.Context) error {
+func (h *Handler) returnBook(c *echo.Context) error {
 	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
 		if err != nil {
@@ -142,7 +142,7 @@ func (h *Handler) returnBook(c echo.Context) error {
 	})
 }
 
-func (h *Handler) history(c echo.Context) error {
+func (h *Handler) history(c *echo.Context) error {
 	return handler.JSON(
 		c,
 		http.StatusOK,

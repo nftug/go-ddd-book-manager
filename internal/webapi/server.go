@@ -7,8 +7,8 @@ import (
 	"go-ddd-book-manager/internal/webapi/handler"
 	"go-ddd-book-manager/internal/webapi/user"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"github.com/samber/do/v2"
 )
 
@@ -19,7 +19,6 @@ func New(i do.Injector) (*echo.Echo, error) {
 	bookHandler := do.MustInvoke[*book.Handler](i)
 
 	e := echo.New()
-	e.HideBanner = true
 	e.HTTPErrorHandler = handler.ErrorHandler
 	e.Use(middleware.RequestID(), middleware.Recover())
 

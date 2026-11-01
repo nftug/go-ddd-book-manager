@@ -3,7 +3,7 @@ package webapi_test
 import (
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/samber/do/v2"
 	"github.com/stretchr/testify/require"
 	"go-ddd-book-manager/internal/application"

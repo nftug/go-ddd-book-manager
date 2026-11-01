@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	github.com/auth0/go-jwt-middleware/v2 v2.3.1
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
-	github.com/labstack/echo/v4 v4.16.3
+	github.com/labstack/echo/v5 v5.4.4
 	github.com/ory/dockertest/v3 v3.12.0
 	github.com/samber/do/v2 v2.1.0
 	github.com/samber/lo v1.53.0
@@ -69,8 +69,6 @@ require (
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/urfave/cli/v2 v2.27.7 // indirect
-	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect

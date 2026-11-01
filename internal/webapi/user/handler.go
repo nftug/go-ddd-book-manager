@@ -11,7 +11,7 @@ import (
 	"go-ddd-book-manager/internal/webapi/handler"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/samber/do/v2"
 )
 
@@ -27,7 +27,7 @@ func NewHandler(i do.Injector) (*Handler, error) {
 	}, nil
 }
 
-func (h *Handler) sync(c echo.Context) error {
+func (h *Handler) sync(c *echo.Context) error {
 	return handler.IdentityJSON(
 		c,
 		http.StatusOK,
@@ -42,6 +42,6 @@ func (h *Handler) sync(c echo.Context) error {
 	)
 }
 
-func (h *Handler) details(c echo.Context) error {
+func (h *Handler) details(c *echo.Context) error {
 	return handler.JSON(c, http.StatusOK, h.userDetails.Execute)
 }

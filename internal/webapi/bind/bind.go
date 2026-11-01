@@ -1,21 +1,21 @@
 package bind
 
-import "github.com/labstack/echo/v4"
+import "github.com/labstack/echo/v5"
 
-func PathParams[T any](c echo.Context) (T, error) {
+func PathParams[T any](c *echo.Context) (T, error) {
 	var value T
-	err := new(echo.DefaultBinder).BindPathParams(c, &value)
+	err := echo.BindPathValues(c, &value)
 	return value, err
 }
 
-func QueryParams[T any](c echo.Context) (T, error) {
+func QueryParams[T any](c *echo.Context) (T, error) {
 	var value T
-	err := new(echo.DefaultBinder).BindQueryParams(c, &value)
+	err := echo.BindQueryParams(c, &value)
 	return value, err
 }
 
-func Body[T any](c echo.Context) (T, error) {
+func Body[T any](c *echo.Context) (T, error) {
 	var value T
-	err := new(echo.DefaultBinder).BindBody(c, &value)
+	err := echo.BindBody(c, &value)
 	return value, err
 }

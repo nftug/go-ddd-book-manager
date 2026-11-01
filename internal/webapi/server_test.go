@@ -21,7 +21,7 @@ import (
 	"go-ddd-book-manager/internal/webapi"
 	"go-ddd-book-manager/internal/webapi/auth"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/samber/do/v2"
 	"github.com/stretchr/testify/require"
 )

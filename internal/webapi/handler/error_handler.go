@@ -7,49 +7,57 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
-func ErrorHandler(err error, c echo.Context) {
+func ErrorHandler(c *echo.Context, err error) {
 	attrs := []any{
 		"method", c.Request().Method,
 		"route", c.Path(),
 		"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
 	}
 
-	if c.Response().Committed {
+	response, responseErr := echo.UnwrapResponse(c.Response())
+	if responseErr != nil {
+		slog.ErrorContext(
+			c.Request().Context(),
+			"could not inspect response",
+			append(attrs, "error", responseErr)...)
+	}
+	if response != nil && response.Committed {
 		slog.ErrorContext(
 			c.Request().Context(),
 			"request failed after response was committed",
-			append(attrs, "status", c.Response().Status, "error", err)...,
+			append(attrs, "status", response.Status, "error", err)...,
 		)
 		return
 	}
 
-	status := 500
+	status := http.StatusInternalServerError
 	message := "Internal Server Error"
 	var validation *dc.ValidationError
-	var httpErr *echo.HTTPError
 
 	switch {
 	case errors.Is(err, auth.ErrUnauthorized):
-		status = 401
+		status = http.StatusUnauthorized
 		message = "Unauthorized"
 	case errors.Is(err, dc.ErrForbidden):
-		status = 403
+		status = http.StatusForbidden
 		message = "Forbidden"
 	case errors.Is(err, dc.ErrNotFound):
-		status = 404
+		status = http.StatusNotFound
 		message = "Not Found"
 	case errors.Is(err, dc.ErrConflict):
-		status = 409
+		status = http.StatusConflict
 		message = "Conflict"
 	case errors.As(err, &validation):
-		status = 400
+		status = http.StatusBadRequest
 		message = "Invalid input"
-	case errors.As(err, &httpErr):
-		status = httpErr.Code
-		message = http.StatusText(status)
+	case echo.StatusCode(err) != 0:
+		status = echo.StatusCode(err)
+		if status < http.StatusInternalServerError {
+			message = http.StatusText(status)
+		}
 	}
 
 	attrs = append(attrs, "status", status)
@@ -59,7 +67,7 @@ func ErrorHandler(err error, c echo.Context) {
 		slog.WarnContext(c.Request().Context(), "request failed", attrs...)
 	}
 
-	if status == 401 {
+	if status == http.StatusUnauthorized {
 		c.Response().Header().Set(echo.HeaderWWWAuthenticate, "Bearer")
 	}
 

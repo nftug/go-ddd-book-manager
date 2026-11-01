@@ -3,7 +3,7 @@ package auth
 import (
 	us "go-ddd-book-manager/internal/application/user/service"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 func IdentityGroup(e *echo.Echo, prefix string, verifier TokenVerifier) *echo.Group {
