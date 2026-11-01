@@ -1,6 +1,7 @@
 package webapi
 
 import (
+	"fmt"
 	us "go-ddd-book-manager/internal/application/user/service"
 	"go-ddd-book-manager/internal/webapi/auth"
 	"go-ddd-book-manager/internal/webapi/book"
@@ -13,6 +14,18 @@ import (
 )
 
 func New(i do.Injector) (*echo.Echo, error) {
+	config := do.MustInvoke[Config](i)
+	var cors echo.MiddlewareFunc
+	if len(config.AllowedOrigins) > 0 {
+		var err error
+		cors, err = (middleware.CORSConfig{
+			AllowOrigins: config.AllowedOrigins,
+			AllowHeaders: []string{echo.HeaderAuthorization, echo.HeaderContentType},
+		}).ToMiddleware()
+		if err != nil {
+			return nil, fmt.Errorf("configure CORS: %w", err)
+		}
+	}
 	verifier := do.MustInvoke[auth.TokenVerifier](i)
 	actorResolver := do.MustInvoke[us.ResolveActor](i)
 	userHandler := do.MustInvoke[*user.Handler](i)
@@ -21,6 +34,9 @@ func New(i do.Injector) (*echo.Echo, error) {
 	e := echo.New()
 	e.HTTPErrorHandler = handler.ErrorHandler
 	e.Use(middleware.RequestID(), middleware.Recover())
+	if cors != nil {
+		e.Use(cors)
+	}
 
 	user.RegisterRoutes(e, verifier, actorResolver, userHandler)
 	book.RegisterRoutes(e, verifier, actorResolver, bookHandler)

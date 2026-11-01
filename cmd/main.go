@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -40,12 +41,25 @@ func run() error {
 	i := do.New()
 	infra.Inject(i, dsn)
 	application.Inject(i)
-	webapi.Inject(i, auth.Config{Issuer: issuer, Audience: audience})
+
+	allowedOrigins := lo.FilterMap(
+		strings.Split(os.Getenv("CORS_ALLOWED_ORIGINS"), ","),
+		func(origin string, _ int) (string, bool) {
+			origin = strings.TrimSpace(origin)
+			return origin, origin != ""
+		},
+	)
+	webapi.Inject(
+		i,
+		auth.Config{Issuer: issuer, Audience: audience},
+		webapi.Config{AllowedOrigins: allowedOrigins},
+	)
 	defer i.Shutdown()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	server := &http.Server{Addr: addr, Handler: do.MustInvoke[*echo.Echo](i)}
+	e := do.MustInvoke[*echo.Echo](i)
+	server := &http.Server{Addr: addr, Handler: e}
 	return serve(ctx, server, server.ListenAndServe)
 }
 

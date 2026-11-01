@@ -36,7 +36,7 @@ task build             # bin/app をビルド
 
 Compose のポートや PostgreSQL のユーザー名・パスワード・DB名は `docker/go-ddd-book-manager/docker-compose.yml` の環境変数で上書きできます。初期値の認証情報は開発専用です。既存の PostgreSQL ボリュームには、初回起動後の認証情報の変更は自動反映されません。
 
-`task run` はコード生成と Docker Compose サービスの起動後に Web API を実行します。開発用の接続設定が自動的に使われ、`DATABASE_URL`、`OIDC_ISSUER`、`OIDC_AUDIENCE` を設定すると上書きできます。初期設定に対応する値は以下のとおりです。
+`task run` はコード生成と Docker Compose サービスの起動後に Web API を実行します。開発用の接続設定が自動的に使われ、`DATABASE_URL`、`OIDC_ISSUER`、`OIDC_AUDIENCE`、`CORS_ALLOWED_ORIGINS` を設定すると上書きできます。初期設定に対応する値は以下のとおりです。
 
 `DATABASE_USERNAME` や `DATABASE_PASSWORD` にURL上でエンコードが必要な文字を使う場合は、エンコード済みの `DATABASE_URL` を明示してください。
 
@@ -44,6 +44,7 @@ Compose のポートや PostgreSQL のユーザー名・パスワード・DB名�
 export DATABASE_URL='postgres://bookmanager:bookmanager@localhost:5432/bookmanager?sslmode=disable'
 export OIDC_ISSUER='http://localhost:8081/realms/book-manager'
 export OIDC_AUDIENCE='book-manager-api'
+export CORS_ALLOWED_ORIGINS='http://localhost:3000'
 ```
 
 統合テストには Docker デーモンが必要です。`task test-integration` は現在の Docker コンテキストから接続先を取得します。別のソケットを指定する場合は、`DOCKER_HOST` を設定して `go test -tags=integration ./internal/infra/...` を直接実行してください。
@@ -64,6 +65,8 @@ task migrate-create -- add_example
 ```
 
 Web API の起動には `DATABASE_URL`、Keycloak の issuer を指定する `OIDC_ISSUER`、API 用 audience の `OIDC_AUDIENCE` が必要です。待受アドレスは `HTTP_ADDR`（省略時 `:8080`）で指定できます。Keycloak の RS256 Access Token を使用し、`realm_access.roles` に `Admin` があるユーザーを管理者として同期します。
+
+ブラウザーから別オリジンでアクセスする場合は、`CORS_ALLOWED_ORIGINS` に許可するオリジンをカンマ区切りで指定します（例: `https://app.example.com,https://admin.example.com`）。直接起動時に未設定なら CORS を有効にしません。`task run` の開発用デフォルトは `http://localhost:3000` です。Bearer トークンの `Authorization` と `Content-Type` ヘッダーに対応し、Cookie を使うクロスオリジン認証は許可しません。
 
 ### 開発用 Keycloak
 

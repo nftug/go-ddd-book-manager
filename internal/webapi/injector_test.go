@@ -18,6 +18,7 @@ func TestProductionInjection(t *testing.T) {
 			infra.Inject(do.New(), "postgres://unused:unused@localhost/unused?sslmode=disable"),
 		),
 		auth.Config{Issuer: "https://identity.example/realms/test", Audience: "api"},
+		webapi.Config{},
 	)
 	t.Cleanup(func() { i.Shutdown() })
 	server, err := do.Invoke[*echo.Echo](i)
@@ -26,8 +27,19 @@ func TestProductionInjection(t *testing.T) {
 }
 
 func TestInvalidOIDCConfigFailsAtStartup(t *testing.T) {
-	i := webapi.Inject(do.New(), auth.Config{Issuer: "invalid", Audience: "api"})
+	i := webapi.Inject(do.New(), auth.Config{Issuer: "invalid", Audience: "api"}, webapi.Config{})
 	t.Cleanup(func() { i.Shutdown() })
 	_, err := do.Invoke[*echo.Echo](i)
 	require.Error(t, err)
+}
+
+func TestInvalidCORSConfigFailsAtStartup(t *testing.T) {
+	i := webapi.Inject(
+		do.New(),
+		auth.Config{},
+		webapi.Config{AllowedOrigins: []string{"not-an-origin"}},
+	)
+	t.Cleanup(func() { i.Shutdown() })
+	_, err := do.Invoke[*echo.Echo](i)
+	require.ErrorContains(t, err, "configure CORS")
 }

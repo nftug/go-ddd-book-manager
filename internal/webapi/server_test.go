@@ -27,6 +27,7 @@ import (
 )
 
 type testDependencies struct {
+	AllowedOrigins  []string
 	Verifier        auth.TokenVerifier
 	Resolver        us.ResolveActor
 	SyncUser        uc.SyncUser
@@ -88,7 +89,7 @@ func newTestServer(t *testing.T, d testDependencies) *echo.Echo {
 		d.CheckoutHistory = history{}
 	}
 
-	i := webapi.Inject(do.New(), auth.Config{})
+	i := webapi.Inject(do.New(), auth.Config{}, webapi.Config{AllowedOrigins: d.AllowedOrigins})
 	t.Cleanup(func() { i.Shutdown() })
 	do.OverrideValue[auth.TokenVerifier](i, d.Verifier)
 	do.ProvideValue[us.ResolveActor](i, d.Resolver)
@@ -394,4 +395,82 @@ func TestFeatureRoutes(t *testing.T) {
 	require.EqualValues(t, 7, p.PageSize)
 	require.Equal(t, 400, call("POST", "/books", `{"title":`).Code)
 	require.Equal(t, 400, call("PUT", base+"/owner", `{"ownerId":"invalid"}`).Code)
+}
+
+func TestCORS(t *testing.T) {
+	var query bd.BookQuery
+	e := newTestServer(t, testDependencies{
+		Verifier:       verifier{},
+		Resolver:       resolver{},
+		AllowedOrigins: []string{"http://localhost:3000", "https://app.example.com"},
+		BookList:       list{query: &query},
+	})
+	for _, tc := range []struct {
+		name, origin string
+		allowed      bool
+	}{
+		{"development", "http://localhost:3000", true},
+		{"production", "https://app.example.com", true},
+		{"untrusted", "https://untrusted.example.com", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodOptions, "/books", nil)
+			req.Header.Set(echo.HeaderOrigin, tc.origin)
+			req.Header.Set(echo.HeaderAccessControlRequestMethod, http.MethodPost)
+			req.Header.Set(echo.HeaderAccessControlRequestHeaders, "authorization,content-type")
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, req)
+			require.Equal(t, http.StatusNoContent, w.Code)
+			if tc.allowed {
+				require.Equal(t, tc.origin, w.Header().Get(echo.HeaderAccessControlAllowOrigin))
+				require.Contains(
+					t,
+					w.Header().Get(echo.HeaderAccessControlAllowMethods),
+					http.MethodPost,
+				)
+				require.Equal(
+					t,
+					"Authorization,Content-Type",
+					w.Header().Get(echo.HeaderAccessControlAllowHeaders),
+				)
+			} else {
+				require.Empty(t, w.Header().Get(echo.HeaderAccessControlAllowOrigin))
+			}
+			require.Empty(t, w.Header().Get(echo.HeaderAccessControlAllowCredentials))
+		})
+	}
+	for _, token := range []string{"valid", ""} {
+		req := httptest.NewRequest(http.MethodGet, "/books", nil)
+		req.Header.Set(echo.HeaderOrigin, "http://localhost:3000")
+		if token != "" {
+			req.Header.Set(echo.HeaderAuthorization, "Bearer "+token)
+		}
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, req)
+		if token == "" {
+			require.Equal(t, http.StatusUnauthorized, w.Code)
+		} else {
+			require.Equal(t, http.StatusOK, w.Code)
+		}
+		require.Equal(
+			t,
+			"http://localhost:3000",
+			w.Header().Get(echo.HeaderAccessControlAllowOrigin),
+		)
+	}
+}
+
+func TestCORSDisabledWhenNoOriginsConfigured(t *testing.T) {
+	var query bd.BookQuery
+	e := newTestServer(
+		t,
+		testDependencies{Verifier: verifier{}, Resolver: resolver{}, BookList: list{query: &query}},
+	)
+	req := httptest.NewRequest(http.MethodGet, "/books", nil)
+	req.Header.Set(echo.HeaderOrigin, "http://localhost:3000")
+	req.Header.Set(echo.HeaderAuthorization, "Bearer valid")
+	w := httptest.NewRecorder()
+	e.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Empty(t, w.Header().Get(echo.HeaderAccessControlAllowOrigin))
 }

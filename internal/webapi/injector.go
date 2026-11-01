@@ -7,8 +7,13 @@ import (
 	"go-ddd-book-manager/internal/webapi/user"
 )
 
-func Inject(i do.Injector, config auth.Config) do.Injector {
+type Config struct {
+	AllowedOrigins []string
+}
+
+func Inject(i do.Injector, config auth.Config, webConfig Config) do.Injector {
 	do.ProvideValue(i, config)
+	do.ProvideValue(i, webConfig)
 	do.Provide(i, auth.NewVerifier)
 	do.Provide(i, book.NewHandler)
 	do.Provide(i, user.NewHandler)

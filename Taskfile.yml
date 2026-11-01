@@ -42,6 +42,7 @@ tasks:
       DATABASE_URL: '{{.DATABASE_URL | default .DEV_DATABASE_URL}}'
       OIDC_ISSUER: '{{.OIDC_ISSUER | default .DEV_OIDC_ISSUER}}'
       OIDC_AUDIENCE: '{{.OIDC_AUDIENCE | default "book-manager-api"}}'
+      CORS_ALLOWED_ORIGINS: '{{.CORS_ALLOWED_ORIGINS | default "http://localhost:3000"}}'
     cmds:
       - go run ./cmd
 
