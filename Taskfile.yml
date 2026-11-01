@@ -23,7 +23,7 @@ tasks:
   format:
     desc: Format codes with golines
     cmds:
-      - go tool golines --base-formatter=gofmt -w .
+      - go tool golines --base-formatter=gofmt --no-reformat-tags -w .
 
   fix:
     desc: Fix codes

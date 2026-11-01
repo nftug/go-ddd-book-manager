@@ -1,6 +1,6 @@
 {
   "[go]": {
-    "editor.formatOnSave": false
+    "editor.formatOnSave": true
   },
   "gopls": {
     "buildFlags": ["-tags=integration"]
@@ -9,7 +9,7 @@
     "commands": [
       {
         "match": "\\.go$",
-        "cmd": "go tool golines --base-formatter=gofmt -w \"${file}\""
+        "cmd": "go tool golines --base-formatter=gofmt --no-reformat-tags -w \"${file}\""
       },
       {
         "match": "\\.go$",

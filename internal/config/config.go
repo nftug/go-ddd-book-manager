@@ -11,7 +11,7 @@ type Config struct {
 	DatabaseURL    string   `env:"DATABASE_URL,required,notEmpty"`
 	OIDCIssuer     string   `env:"OIDC_ISSUER,required,notEmpty"`
 	OIDCAudience   string   `env:"OIDC_AUDIENCE,required,notEmpty"`
-	HTTPAddr       string   `env:"HTTP_ADDR"                       envDefault:":8080"`
+	HTTPAddr       string   `env:"HTTP_ADDR" envDefault:":8080"`
 	AllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS"`
 }
 
