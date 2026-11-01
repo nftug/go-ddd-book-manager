@@ -27,6 +27,16 @@ func NewHandler(i do.Injector) (*Handler, error) {
 	}, nil
 }
 
+// sync godoc
+// @Summary Synchronize the current user
+// @Produce json
+// @Success 200 {object} dto.UserResponse
+// @Failure 401 {object} handler.ErrorResponse "Unauthorized"
+// @Failure 409 {object} handler.ErrorResponse "Conflict"
+// @Failure 500 {object} handler.ErrorResponse "Internal Server Error"
+// @Header 401 {string} WWW-Authenticate "Bearer"
+// @Security BearerAuth
+// @Router /users/me [post]
 func (h *Handler) sync(c *echo.Context) error {
 	return handler.IdentityJSON(
 		c,
@@ -42,6 +52,16 @@ func (h *Handler) sync(c *echo.Context) error {
 	)
 }
 
+// details godoc
+// @Summary Get the current user
+// @Produce json
+// @Success 200 {object} dto.UserResponse
+// @Failure 401 {object} handler.ErrorResponse "Unauthorized"
+// @Failure 404 {object} handler.ErrorResponse "Not Found"
+// @Failure 500 {object} handler.ErrorResponse "Internal Server Error"
+// @Header 401 {string} WWW-Authenticate "Bearer"
+// @Security BearerAuth
+// @Router /users/me [get]
 func (h *Handler) details(c *echo.Context) error {
 	return handler.JSON(c, http.StatusOK, h.userDetails.Execute)
 }

@@ -14,6 +14,10 @@ import (
 	"github.com/samber/do/v2"
 )
 
+// @title Book Manager API
+// @version 0.1.0
+// @securityDefinitions.bearerauth BearerAuth
+
 func New(i do.Injector) (*echo.Echo, error) {
 	config := do.MustInvoke[config.Config](i)
 	var cors echo.MiddlewareFunc

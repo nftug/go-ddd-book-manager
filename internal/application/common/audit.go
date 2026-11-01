@@ -8,19 +8,19 @@ import (
 )
 
 type UserReference struct {
-	ID   uuid.UUID `json:"id"`
+	ID   uuid.UUID `json:"id" format:"uuid"`
 	Name string    `json:"name"`
-}
+} // @name UserReference
 
 type AuditRecord struct {
 	User UserReference `json:"user"`
-	At   time.Time     `json:"at"`
-}
+	At   time.Time     `json:"at" format:"date-time"`
+} // @name AuditRecord
 
 type Audit struct {
 	Created AuditRecord  `json:"created"`
 	Updated *AuditRecord `json:"updated"`
-}
+} // @name Audit
 
 func AuditFromDomain(a domain.EntityAudit) Audit {
 	created := a.Created()

@@ -10,6 +10,11 @@ tasks:
     cmds:
       - go generate ./...
 
+  openapi:
+    desc: Generate the experimental OpenAPI schema
+    cmds:
+      - go tool swag init --v3.1 --dir internal/webapi,internal/application --generalInfo server.go --output . --outputTypes json --parseInternal
+
   docker-up:
     desc: Start Docker Compose services
     cmds:

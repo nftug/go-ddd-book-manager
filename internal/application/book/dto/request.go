@@ -7,8 +7,8 @@ type BookRequest struct {
 	Authors     []string `json:"authors"`
 	ISBN        *string  `json:"isbn"`
 	Description *string  `json:"description"`
-}
+} // @name BookRequest
 
 type OwnerChangeRequest struct {
-	OwnerID uuid.UUID `json:"ownerId"`
-}
+	OwnerID uuid.UUID `json:"ownerId" format:"uuid"`
+} // @name OwnerChangeRequest

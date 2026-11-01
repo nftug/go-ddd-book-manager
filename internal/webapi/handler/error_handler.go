@@ -10,6 +10,13 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// ErrorResponse documents the JSON error response.
+type ErrorResponse struct {
+	Message string `json:"message"`
+	Field   string `json:"field,omitempty"`
+	Code    string `json:"code,omitempty"`
+} // @name ErrorResponse
+
 func ErrorHandler(c *echo.Context, err error) {
 	attrs := []any{
 		"method", c.Request().Method,

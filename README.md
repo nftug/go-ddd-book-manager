@@ -27,8 +27,13 @@ docker/                 開発用 Docker Compose 設定
 task test              # コード生成とテスト
 task test-integration  # Dockertest と PostgreSQL による統合テスト
 task fix               # コード生成とフォーマット
+task openapi           # 試作用 OpenAPI JSON を生成
 task build             # bin/app をビルド
 ```
+
+## OpenAPI スキーマの試作
+
+`task openapi` で `swagger.json` を生成します。現在のユーザー API と書籍 API のルートを記載しています。定義はハンドラーのコメントに記述し、生成には OpenAPI 3.1 対応の swaggo v2 リリース候補版を使います。コメントと実装の一致は自動では保証されません。ポインターフィールドは必須項目として扱いません。
 
 ## 開発時におけるDockerの使用
 

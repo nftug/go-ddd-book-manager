@@ -5,7 +5,7 @@ import dc "go-ddd-book-manager/internal/domain/common"
 type PermissionResponse struct {
 	CanUpdate bool `json:"can_update"`
 	CanDelete bool `json:"can_delete"`
-}
+} // @name PermissionResponse
 
 // PermissionFromDomain maps the domain policy to the permissions exposed by read use cases.
 func PermissionFromDomain(policy dc.PermissionPolicy) PermissionResponse {
