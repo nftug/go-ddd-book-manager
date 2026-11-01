@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go-ddd-book-manager/internal/config"
 	dc "go-ddd-book-manager/internal/domain/common"
 	"net/http"
 	"net/url"
@@ -29,14 +30,9 @@ func (*claims) Validate(context.Context) error { return nil }
 
 type jwtVerifier struct{ v *validator.Validator }
 
-type Config struct {
-	Issuer   string
-	Audience string
-}
-
 func NewVerifier(i do.Injector) (TokenVerifier, error) {
-	config := do.MustInvoke[Config](i)
-	return newVerifier(config.Issuer, config.Audience, 5*time.Minute)
+	config := do.MustInvoke[config.Config](i)
+	return newVerifier(config.OIDCIssuer, config.OIDCAudience, 5*time.Minute)
 }
 
 func newVerifier(issuer, audience string, cacheTTL time.Duration) (TokenVerifier, error) {

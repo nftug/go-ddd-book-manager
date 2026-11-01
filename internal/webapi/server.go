@@ -3,6 +3,7 @@ package webapi
 import (
 	"fmt"
 	us "go-ddd-book-manager/internal/application/user/service"
+	"go-ddd-book-manager/internal/config"
 	"go-ddd-book-manager/internal/webapi/auth"
 	"go-ddd-book-manager/internal/webapi/book"
 	"go-ddd-book-manager/internal/webapi/handler"
@@ -14,7 +15,7 @@ import (
 )
 
 func New(i do.Injector) (*echo.Echo, error) {
-	config := do.MustInvoke[Config](i)
+	config := do.MustInvoke[config.Config](i)
 	var cors echo.MiddlewareFunc
 	if len(config.AllowedOrigins) > 0 {
 		var err error

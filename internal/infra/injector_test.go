@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"go-ddd-book-manager/internal/config"
 	dc "go-ddd-book-manager/internal/domain/common"
 	"go-ddd-book-manager/internal/infra"
 
@@ -12,7 +13,12 @@ import (
 )
 
 func TestInfrastructureServices(t *testing.T) {
-	i := infra.Inject(do.New(), "postgres://unused:unused@localhost/unused?sslmode=disable")
+	i := do.New()
+	do.ProvideValue(
+		i,
+		config.Config{DatabaseURL: "postgres://unused:unused@localhost/unused?sslmode=disable"},
+	)
+	infra.Inject(i)
 
 	clock := do.MustInvoke[dc.Clock](i)
 	before := time.Now()

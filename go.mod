@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	github.com/auth0/go-jwt-middleware/v2 v2.3.1
+	github.com/caarlos0/env/v11 v11.4.1
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/labstack/echo/v5 v5.4.4
 	github.com/ory/dockertest/v3 v3.12.0

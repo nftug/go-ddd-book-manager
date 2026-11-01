@@ -9,8 +9,7 @@ import (
 	"github.com/samber/do/v2"
 )
 
-func Inject(i do.Injector, dsn string) do.Injector {
-	do.ProvideValue(i, databaseinfra.DatabaseConfig{DSN: dsn})
+func Inject(i do.Injector) do.Injector {
 	do.Provide(i, databaseinfra.NewDatabase)
 	do.Provide(i, databaseinfra.NewBunDB)
 	do.Provide(i, bookinfra.NewRepository)

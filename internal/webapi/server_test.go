@@ -17,6 +17,7 @@ import (
 	ud "go-ddd-book-manager/internal/application/user/dto"
 	uq "go-ddd-book-manager/internal/application/user/query"
 	us "go-ddd-book-manager/internal/application/user/service"
+	"go-ddd-book-manager/internal/config"
 	dc "go-ddd-book-manager/internal/domain/common"
 	"go-ddd-book-manager/internal/webapi"
 	"go-ddd-book-manager/internal/webapi/auth"
@@ -89,7 +90,9 @@ func newTestServer(t *testing.T, d testDependencies) *echo.Echo {
 		d.CheckoutHistory = history{}
 	}
 
-	i := webapi.Inject(do.New(), auth.Config{}, webapi.Config{AllowedOrigins: d.AllowedOrigins})
+	i := do.New()
+	do.ProvideValue(i, config.Config{AllowedOrigins: d.AllowedOrigins})
+	webapi.Inject(i)
 	t.Cleanup(func() { i.Shutdown() })
 	do.OverrideValue[auth.TokenVerifier](i, d.Verifier)
 	do.ProvideValue[us.ResolveActor](i, d.Resolver)

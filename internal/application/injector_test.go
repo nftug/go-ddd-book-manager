@@ -9,14 +9,19 @@ import (
 	uc "go-ddd-book-manager/internal/application/user/command"
 	uq "go-ddd-book-manager/internal/application/user/query"
 	us "go-ddd-book-manager/internal/application/user/service"
+	"go-ddd-book-manager/internal/config"
 	"go-ddd-book-manager/internal/infra"
 	"testing"
 )
 
 func TestInjection(t *testing.T) {
-	i := application.Inject(
-		infra.Inject(do.New(), "postgres://unused:unused@localhost/unused?sslmode=disable"),
+	i := do.New()
+	do.ProvideValue(
+		i,
+		config.Config{DatabaseURL: "postgres://unused:unused@localhost/unused?sslmode=disable"},
 	)
+	infra.Inject(i)
+	application.Inject(i)
 	t.Cleanup(func() { i.Shutdown() })
 	require.NotNil(t, do.MustInvoke[bc.CreateBook](i))
 	require.NotNil(t, do.MustInvoke[bc.UpdateBook](i))
