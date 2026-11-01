@@ -13,8 +13,8 @@ func RegisterRoutes(
 	actorResolver us.ResolveActor,
 	h *Handler,
 ) {
-	idRoutes := auth.IdentityGroup(e, "/users", verifier)
-	actorRoutes := auth.ActorGroup(e, "/users", verifier, actorResolver)
+	idRoutes := e.Group("/users", auth.RequireIdentity(verifier))
+	actorRoutes := e.Group("/users", auth.RequireUser(verifier, actorResolver))
 	idRoutes.POST("/me", h.sync)
 	actorRoutes.GET("/me", h.details)
 }

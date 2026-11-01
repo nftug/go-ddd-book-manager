@@ -29,9 +29,9 @@ func RequireIdentity(v TokenVerifier) echo.MiddlewareFunc {
 	}
 }
 
-func RequireUser(r us.ResolveActor) echo.MiddlewareFunc {
+func RequireUser(v TokenVerifier, r us.ResolveActor) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c *echo.Context) error {
+		return RequireIdentity(v)(func(c *echo.Context) error {
 			identity, err := IdentityFrom(c)
 			if err != nil {
 				return err
@@ -47,6 +47,6 @@ func RequireUser(r us.ResolveActor) echo.MiddlewareFunc {
 			ctx := context.WithValue(c.Request().Context(), actorKey, actor)
 			c.SetRequest(c.Request().WithContext(ctx))
 			return next(c)
-		}
+		})
 	}
 }

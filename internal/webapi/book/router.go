@@ -13,7 +13,7 @@ func RegisterRoutes(
 	actorResolver us.ResolveActor,
 	h *Handler,
 ) {
-	routes := auth.ActorGroup(e, "/books", verifier, actorResolver)
+	routes := e.Group("/users", auth.RequireUser(verifier, actorResolver))
 	routes.GET("", h.list)
 	routes.POST("", h.create)
 	routes.GET("/:book_id", h.details)

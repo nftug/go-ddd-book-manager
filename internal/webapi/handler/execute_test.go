@@ -52,7 +52,7 @@ func TestExecuteWithActor(t *testing.T) {
 						return "result", tc.resultError
 					},
 				)
-			}, auth.RequireIdentity(verifier{id}), auth.RequireUser(resolver{actor}))
+			}, auth.RequireUser(verifier{id}, resolver{actor}))
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			req.Header.Set("Authorization", "Bearer valid")
 			req = req.WithContext(context.WithValue(req.Context(), contextKey{}, "value"))
@@ -89,10 +89,10 @@ func TestNoContentAndMissingActor(t *testing.T) {
 			require.Equal(t, "value", ctx.Value(contextKey{}))
 			return nil
 		})
-	}, auth.RequireIdentity(verifier{id}), auth.RequireUser(resolver{actor}))
+	}, auth.RequireUser(verifier{id}, resolver{actor}))
 	e.POST("/error", func(c *echo.Context) error {
 		return handler.NoContent(c, func(context.Context, dc.Actor) error { return expected })
-	}, auth.RequireIdentity(verifier{id}), auth.RequireUser(resolver{actor}))
+	}, auth.RequireUser(verifier{id}, resolver{actor}))
 	for _, tc := range []struct {
 		path   string
 		status int
