@@ -29,6 +29,7 @@ task test-integration  # Dockertest と PostgreSQL による統合テスト
 task fix               # コード生成とフォーマット
 task openapi           # 試作用 OpenAPI JSON を生成
 task build             # bin/app をビルド
+task dev               # Air で変更を監視して Web API を再起動
 ```
 
 ## OpenAPI スキーマの試作
@@ -42,6 +43,8 @@ task build             # bin/app をビルド
 Compose のポートや PostgreSQL のユーザー名・パスワード・DB名は `docker/go-ddd-book-manager/docker-compose.yml` の環境変数で上書きできます。初期値の認証情報は開発専用です。既存の PostgreSQL ボリュームには、初回起動後の認証情報の変更は自動反映されません。
 
 `task run` はコード生成と Docker Compose サービスの起動後に Web API を実行します。開発用の接続設定が自動的に使われ、`DATABASE_URL`、`OIDC_ISSUER`、`OIDC_AUDIENCE`、`CORS_ALLOWED_ORIGINS` を設定すると上書きできます。初期設定に対応する値は以下のとおりです。
+
+`task dev` は同じ準備と接続設定で [Air](https://github.com/air-verse/air) を起動し、Go ソースや埋め込み SQL の変更時に Web API をビルドし直して再起動します。Air の個別インストールは不要です。`go:generate` の対象を変更した場合は、別途 `task generate` を実行してください。
 
 `DATABASE_USERNAME` や `DATABASE_PASSWORD` にURL上でエンコードが必要な文字を使う場合は、エンコード済みの `DATABASE_URL` を明示してください。
 
