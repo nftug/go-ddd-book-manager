@@ -20,18 +20,6 @@ import (
 // @securityDefinitions.bearerauth BearerAuth
 
 func New(i do.Injector) (*echo.Echo, error) {
-	config := do.MustInvoke[config.Config](i)
-	var cors echo.MiddlewareFunc
-	if len(config.AllowedOrigins) > 0 {
-		var err error
-		cors, err = (middleware.CORSConfig{
-			AllowOrigins: config.AllowedOrigins,
-			AllowHeaders: []string{echo.HeaderAuthorization, echo.HeaderContentType},
-		}).ToMiddleware()
-		if err != nil {
-			return nil, fmt.Errorf("configure CORS: %w", err)
-		}
-	}
 	verifier := do.MustInvoke[auth.TokenVerifier](i)
 	actorResolver := do.MustInvoke[us.ResolveActor](i)
 	userHandler := do.MustInvoke[*user.Handler](i)
@@ -45,7 +33,16 @@ func New(i do.Injector) (*echo.Echo, error) {
 		telemetry.RequestLogging(),
 		middleware.Recover(),
 	)
-	if cors != nil {
+
+	config := do.MustInvoke[config.Config](i)
+	if len(config.AllowedOrigins) > 0 {
+		cors, err := (middleware.CORSConfig{
+			AllowOrigins: config.AllowedOrigins,
+			AllowHeaders: []string{echo.HeaderAuthorization, echo.HeaderContentType},
+		}).ToMiddleware()
+		if err != nil {
+			return nil, fmt.Errorf("configure CORS: %w", err)
+		}
 		e.Use(cors)
 	}
 
