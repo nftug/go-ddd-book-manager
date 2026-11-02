@@ -14,12 +14,14 @@ func TestLoad(t *testing.T) {
 	t.Setenv("OIDC_AUDIENCE", "api")
 	t.Setenv("HTTP_ADDR", "")
 	t.Setenv("CORS_ALLOWED_ORIGINS", " https://app.example.com, ,http://localhost:3000 ,")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
 	got, err := config.Load()
 	require.NoError(t, err)
 	require.Equal(t, "postgres://db", got.DatabaseURL)
 	require.Equal(t, "https://identity.example", got.OIDCIssuer)
 	require.Equal(t, "api", got.OIDCAudience)
 	require.Equal(t, ":8080", got.HTTPAddr)
+	require.Equal(t, "http://localhost:4318", got.OTLPEndpoint)
 	require.Equal(
 		t,
 		[]string{"https://app.example.com", "http://localhost:3000"},
@@ -27,10 +29,12 @@ func TestLoad(t *testing.T) {
 	)
 	t.Setenv("HTTP_ADDR", ":9090")
 	t.Setenv("CORS_ALLOWED_ORIGINS", " ")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	got, err = config.Load()
 	require.NoError(t, err)
 	require.Equal(t, ":9090", got.HTTPAddr)
 	require.Empty(t, got.AllowedOrigins)
+	require.Empty(t, got.OTLPEndpoint)
 }
 
 func TestLoadRequiresDatabaseAndOIDC(t *testing.T) {

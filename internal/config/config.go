@@ -13,6 +13,7 @@ type Config struct {
 	OIDCAudience   string   `env:"OIDC_AUDIENCE,required,notEmpty"`
 	HTTPAddr       string   `env:"HTTP_ADDR" envDefault:":8080"`
 	AllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS"`
+	OTLPEndpoint   string   `env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
 }
 
 func Load() (Config, error) {

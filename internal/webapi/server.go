@@ -7,6 +7,7 @@ import (
 	"go-ddd-book-manager/internal/webapi/auth"
 	"go-ddd-book-manager/internal/webapi/book"
 	"go-ddd-book-manager/internal/webapi/handler"
+	"go-ddd-book-manager/internal/webapi/telemetry"
 	"go-ddd-book-manager/internal/webapi/user"
 
 	"github.com/labstack/echo/v5"
@@ -38,7 +39,12 @@ func New(i do.Injector) (*echo.Echo, error) {
 
 	e := echo.New()
 	e.HTTPErrorHandler = handler.ErrorHandler
-	e.Use(middleware.RequestID(), middleware.Recover())
+	e.Use(
+		middleware.RequestID(),
+		telemetry.TracingMiddleware(),
+		telemetry.RequestLogging(),
+		middleware.Recover(),
+	)
 	if cors != nil {
 		e.Use(cors)
 	}

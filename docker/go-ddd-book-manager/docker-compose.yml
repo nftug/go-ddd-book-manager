@@ -1,4 +1,10 @@
 services:
+  observability:
+    image: grafana/otel-lgtm:0.11.6
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT_OUTER:-3001}:3000"
+      - "127.0.0.1:${OTLP_HTTP_PORT_OUTER:-4318}:4318"
+
   postgres:
     image: postgres:18-alpine
     ports:

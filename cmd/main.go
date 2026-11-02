@@ -13,6 +13,7 @@ import (
 	"go-ddd-book-manager/internal/application"
 	"go-ddd-book-manager/internal/config"
 	"go-ddd-book-manager/internal/infra"
+	"go-ddd-book-manager/internal/telemetry"
 	"go-ddd-book-manager/internal/webapi"
 
 	"github.com/labstack/echo/v5"
@@ -32,6 +33,22 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
+	shutdownTelemetry, err := telemetry.Init(
+		context.Background(),
+		config.OTLPEndpoint,
+		os.Stdout,
+	)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := shutdownTelemetry(ctx); err != nil {
+			log.Printf("shutdown telemetry: %v", err)
+		}
+	}()
 
 	i := do.New()
 	do.ProvideValue(i, config)

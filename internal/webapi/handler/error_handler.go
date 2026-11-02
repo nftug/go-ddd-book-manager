@@ -3,9 +3,13 @@ package handler
 import (
 	"errors"
 	dc "go-ddd-book-manager/internal/domain/common"
+	"go-ddd-book-manager/internal/telemetry"
 	"go-ddd-book-manager/internal/webapi/auth"
-	"log/slog"
+
 	"net/http"
+
+	"go.opentelemetry.io/otel/attribute"
+	otellog "go.opentelemetry.io/otel/log"
 
 	"github.com/labstack/echo/v5"
 )
@@ -18,24 +22,29 @@ type ErrorResponse struct {
 } // @name ErrorResponse
 
 func ErrorHandler(c *echo.Context, err error) {
-	attrs := []any{
-		"method", c.Request().Method,
-		"route", c.Path(),
-		"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
+	attrs := []attribute.KeyValue{
+		attribute.String("method", c.Request().Method),
+		attribute.String("route", c.Path()),
+		attribute.String("request_id", c.Response().Header().Get(echo.HeaderXRequestID)),
 	}
 
 	response, responseErr := echo.UnwrapResponse(c.Response())
 	if responseErr != nil {
-		slog.ErrorContext(
-			c.Request().Context(),
+		telemetry.Emit(
+			c.Request().Context(), otellog.SeverityError,
 			"could not inspect response",
-			append(attrs, "error", responseErr)...)
+			append(attrs, attribute.String("error", responseErr.Error()))...)
 	}
 	if response != nil && response.Committed {
-		slog.ErrorContext(
+		telemetry.Emit(
 			c.Request().Context(),
+			otellog.SeverityError,
 			"request failed after response was committed",
-			append(attrs, "status", response.Status, "error", err)...,
+			append(
+				attrs,
+				attribute.Int("status", response.Status),
+				attribute.String("error", err.Error()),
+			)...,
 		)
 		return
 	}
@@ -67,11 +76,15 @@ func ErrorHandler(c *echo.Context, err error) {
 		}
 	}
 
-	attrs = append(attrs, "status", status)
+	attrs = append(attrs, attribute.Int("status", status))
 	if status >= http.StatusInternalServerError {
-		slog.ErrorContext(c.Request().Context(), "request failed", append(attrs, "error", err)...)
+		telemetry.Emit(
+			c.Request().Context(),
+			otellog.SeverityError,
+			"request failed",
+			append(attrs, attribute.String("error", err.Error()))...)
 	} else {
-		slog.WarnContext(c.Request().Context(), "request failed", attrs...)
+		telemetry.Emit(c.Request().Context(), otellog.SeverityWarn, "request failed", attrs...)
 	}
 
 	if status == http.StatusUnauthorized {
@@ -83,10 +96,10 @@ func ErrorHandler(c *echo.Context, err error) {
 		return
 	}
 
-	body := map[string]any{"message": message}
+	body := ErrorResponse{Message: message}
 	if validation != nil {
-		body["field"] = validation.Field()
-		body["code"] = validation.Code()
+		body.Field = validation.Field()
+		body.Code = validation.Code()
 	}
 
 	_ = c.JSON(status, body)

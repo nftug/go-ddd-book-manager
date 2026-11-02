@@ -2,6 +2,7 @@ version: '3'
 
 vars:
   DEV_DATABASE_URL: 'postgres://{{.DATABASE_USERNAME | default "bookmanager"}}:{{.DATABASE_PASSWORD | default "bookmanager"}}@localhost:{{.DATABASE_PORT_OUTER | default "5432"}}/{{.DATABASE_NAME | default "bookmanager"}}?sslmode=disable'
+  DEV_OTLP_ENDPOINT: 'http://localhost:{{.OTLP_HTTP_PORT_OUTER | default "4318"}}'
   DEV_OIDC_ISSUER: 'http://localhost:{{.KEYCLOAK_PORT_OUTER | default "8081"}}/realms/book-manager'
 
 tasks:
@@ -44,6 +45,7 @@ tasks:
       - generate
       - docker-up
     env:
+      OTEL_EXPORTER_OTLP_ENDPOINT: '{{.OTEL_EXPORTER_OTLP_ENDPOINT | default .DEV_OTLP_ENDPOINT}}'
       DATABASE_URL: '{{.DATABASE_URL | default .DEV_DATABASE_URL}}'
       OIDC_ISSUER: '{{.OIDC_ISSUER | default .DEV_OIDC_ISSUER}}'
       OIDC_AUDIENCE: '{{.OIDC_AUDIENCE | default "book-manager-api"}}'

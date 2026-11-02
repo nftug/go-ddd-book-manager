@@ -73,6 +73,12 @@ Web API の起動には `DATABASE_URL`、Keycloak の issuer を指定する `OI
 
 ブラウザーから別オリジンでアクセスする場合は、`CORS_ALLOWED_ORIGINS` に許可するオリジンをカンマ区切りで指定します（例: `https://app.example.com,https://admin.example.com`）。直接起動時に未設定なら CORS を有効にしません。`task run` の開発用デフォルトは `http://localhost:3000` です。Bearer トークンの `Authorization` と `Content-Type` ヘッダーに対応し、Cookie を使うクロスオリジン認証は許可しません。
 
+### ログとトレース
+
+`task run` は OpenTelemetry のログを標準出力と OTLP/HTTP に送信し、リクエストのトレースも送信します。Grafana は http://localhost:3001 （ユーザー名・パスワードは `admin`）で開き、Explore の Loki でログ、Tempo でトレースを検索できます。ログの Trace ID を使って対応するトレースを確認できます。`OTEL_EXPORTER_OTLP_ENDPOINT` で送信先を変更できます。直接起動時に送信先が未設定なら標準出力のみです。
+
+アクセスログとトレースにはクエリ文字列を記録します。`access_token`、`token`、`password`、`client_secret` の値はマスクしますが、それ以外のクエリ値は記録されます。リクエスト本文と Authorization ヘッダーは記録しません。この開発用構成は監査証跡の保存を目的としません。
+
 ### 開発用 Keycloak
 
 Docker Compose の Keycloak は初回起動時に `docker/go-ddd-book-manager/realm.json` をインポートします。開発用の realm は `book-manager`、API の audience とトークン取得用 client ID は `book-manager-api` です。`OIDC_ISSUER` には `http://localhost:<KEYCLOAK_PORT_OUTER>/realms/book-manager`、`OIDC_AUDIENCE` には `book-manager-api` を設定してください。
