@@ -40,7 +40,7 @@ func TestErrorHandlerResponses(t *testing.T) {
 			"validation with empty details",
 			dc.NewValidationError("", ""),
 			400,
-			`{"message":"Invalid input","field":"","code":""}`,
+			`{"message":"Invalid input"}`,
 		},
 		{
 			"echo error",

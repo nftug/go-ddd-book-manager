@@ -3,13 +3,9 @@ package handler
 import (
 	"errors"
 	dc "go-ddd-book-manager/internal/domain/common"
-	"go-ddd-book-manager/internal/telemetry"
 	"go-ddd-book-manager/internal/webapi/auth"
 
 	"net/http"
-
-	"go.opentelemetry.io/otel/attribute"
-	otellog "go.opentelemetry.io/otel/log"
 
 	"github.com/labstack/echo/v5"
 )
@@ -22,30 +18,8 @@ type ErrorResponse struct {
 } // @name ErrorResponse
 
 func ErrorHandler(c *echo.Context, err error) {
-	attrs := []attribute.KeyValue{
-		attribute.String("method", c.Request().Method),
-		attribute.String("route", c.Path()),
-		attribute.String("request_id", c.Response().Header().Get(echo.HeaderXRequestID)),
-	}
-
-	response, responseErr := echo.UnwrapResponse(c.Response())
-	if responseErr != nil {
-		telemetry.Emit(
-			c.Request().Context(), otellog.SeverityError,
-			"could not inspect response",
-			append(attrs, attribute.String("error", responseErr.Error()))...)
-	}
+	response, _ := echo.UnwrapResponse(c.Response())
 	if response != nil && response.Committed {
-		telemetry.Emit(
-			c.Request().Context(),
-			otellog.SeverityError,
-			"request failed after response was committed",
-			append(
-				attrs,
-				attribute.Int("status", response.Status),
-				attribute.String("error", err.Error()),
-			)...,
-		)
 		return
 	}
 
@@ -74,17 +48,6 @@ func ErrorHandler(c *echo.Context, err error) {
 		if status < http.StatusInternalServerError {
 			message = http.StatusText(status)
 		}
-	}
-
-	attrs = append(attrs, attribute.Int("status", status))
-	if status >= http.StatusInternalServerError {
-		telemetry.Emit(
-			c.Request().Context(),
-			otellog.SeverityError,
-			"request failed",
-			append(attrs, attribute.String("error", err.Error()))...)
-	} else {
-		telemetry.Emit(c.Request().Context(), otellog.SeverityWarn, "request failed", attrs...)
 	}
 
 	if status == http.StatusUnauthorized {
