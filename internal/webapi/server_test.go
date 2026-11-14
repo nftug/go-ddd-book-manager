@@ -16,7 +16,6 @@ import (
 	uc "go-ddd-book-manager/internal/application/user/command"
 	ud "go-ddd-book-manager/internal/application/user/dto"
 	uq "go-ddd-book-manager/internal/application/user/query"
-	us "go-ddd-book-manager/internal/application/user/service"
 	"go-ddd-book-manager/internal/config"
 	dc "go-ddd-book-manager/internal/domain/common"
 	"go-ddd-book-manager/internal/webapi"
@@ -30,7 +29,6 @@ import (
 type testDependencies struct {
 	AllowedOrigins  []string
 	Verifier        auth.TokenVerifier
-	Resolver        us.ResolveActor
 	SyncUser        uc.SyncUser
 	UserDetails     uq.GetUserDetails
 	BookList        bq.GetBookList
@@ -95,7 +93,6 @@ func newTestServer(t *testing.T, d testDependencies) *echo.Echo {
 	webapi.Inject(i)
 	t.Cleanup(func() { i.Shutdown() })
 	do.OverrideValue[auth.TokenVerifier](i, d.Verifier)
-	do.ProvideValue[us.ResolveActor](i, d.Resolver)
 	do.ProvideValue[uc.SyncUser](i, d.SyncUser)
 	do.ProvideValue[uq.GetUserDetails](i, d.UserDetails)
 	do.ProvideValue[bq.GetBookList](i, d.BookList)
@@ -129,17 +126,19 @@ func (verifier) Verify(_ context.Context, s string) (auth.Identity, error) {
 	}, nil
 }
 
-type resolver struct{ err error }
-
-func (r resolver) Execute(context.Context, uuid.UUID) (dc.Actor, error) {
-	return dc.NewActor(userID, "Test", dc.UserRole), r.err
+type syncer struct {
+	called *bool
+	err    error
 }
 
-type syncer struct{ called *bool }
-
-func (s syncer) Execute(_ context.Context, r ud.SyncUserRequest) (ud.UserResponse, error) {
-	*s.called = true
-	return ud.UserResponse{ID: r.ID, Name: r.Name}, nil
+func (s syncer) Execute(_ context.Context, r ud.SyncUserRequest) (dc.Actor, error) {
+	if s.called != nil {
+		*s.called = true
+	}
+	if s.err != nil {
+		return dc.Actor{}, s.err
+	}
+	return dc.NewActor(r.ID, r.Name, r.Role), nil
 }
 
 type list struct {
@@ -177,8 +176,7 @@ func TestAuthenticationAndBinding(t *testing.T) {
 	e := newTestServer(t,
 		testDependencies{
 			Verifier:   verifier{},
-			Resolver:   resolver{},
-			SyncUser:   syncer{&called},
+			SyncUser:   syncer{called: &called},
 			BookList:   list{query: &q},
 			DeleteBook: remover{&id},
 		},
@@ -187,8 +185,7 @@ func TestAuthenticationAndBinding(t *testing.T) {
 	require.Equal(t, 401, w.Code)
 	require.Equal(t, "Bearer", w.Header().Get("WWW-Authenticate"))
 	w = request(e, "POST", "/users/me", "valid")
-	require.Equal(t, 200, w.Code)
-	require.True(t, called)
+	require.Equal(t, 404, w.Code)
 	w = request(e, "GET", "/books?title=go&checked_out=true&page=2&page_size=15", "valid")
 	require.Equal(t, 200, w.Code)
 	require.Equal(t, "go", *q.Title)
@@ -209,54 +206,24 @@ func TestAuthErrorsAndInternalDetails(t *testing.T) {
 	for _, tc := range []struct {
 		err    error
 		status int
-	}{{dc.ErrNotFound, 401}, {errors.New("sensitive DB failure"), 500}} {
+	}{{dc.NewValidationError("name", "invalid"), 401}, {errors.New("sensitive DB failure"), 500}} {
 		called := false
 		e := newTestServer(t,
 			testDependencies{
 				Verifier: verifier{},
-				Resolver: resolver{tc.err},
-				SyncUser: syncer{&called},
+				SyncUser: syncer{called: &called, err: tc.err},
 			},
 		)
 		w := request(e, "GET", "/users/me", "valid")
 		require.Equal(t, tc.status, w.Code)
-		require.False(t, called)
+		require.True(t, called)
 		require.NotContains(t, w.Body.String(), "sensitive")
 		if tc.status == 401 {
 			require.Equal(t, "Bearer", w.Header().Get("WWW-Authenticate"))
 		}
 
 		w = request(e, "POST", "/users/me", "valid")
-		require.Equal(t, 200, w.Code)
-		require.True(t, called)
-	}
-}
-
-func TestRoutesRequireRegisteredUser(t *testing.T) {
-	e := newTestServer(
-		t,
-		testDependencies{Verifier: verifier{}, Resolver: resolver{dc.ErrNotFound}},
-	)
-	base := "/books/" + userID.String()
-	for _, route := range []struct{ method, path string }{
-		{http.MethodGet, "/users/me"},
-		{http.MethodGet, "/books"},
-		{http.MethodPost, "/books"},
-		{http.MethodGet, base},
-		{http.MethodPut, base},
-		{http.MethodDelete, base},
-		{http.MethodPut, base + "/owner"},
-		{http.MethodPost, base + "/checkouts"},
-		{http.MethodPost, base + "/return"},
-		{http.MethodGet, base + "/checkouts"},
-	} {
-		t.Run(route.method+" "+route.path, func(t *testing.T) {
-			for _, token := range []string{"", "invalid", "valid"} {
-				w := request(e, route.method, route.path, token)
-				require.Equal(t, http.StatusUnauthorized, w.Code, "token: %q", token)
-				require.Equal(t, "Bearer", w.Header().Get(echo.HeaderWWWAuthenticate))
-			}
-		})
+		require.Equal(t, 404, w.Code)
 	}
 }
 
@@ -269,7 +236,6 @@ func TestErrorMapping(t *testing.T) {
 		e := newTestServer(t,
 			testDependencies{
 				Verifier: verifier{},
-				Resolver: resolver{},
 				BookList: list{&q, tc.err},
 			},
 		)
@@ -350,7 +316,6 @@ func TestFeatureRoutes(t *testing.T) {
 	e := newTestServer(t,
 		testDependencies{
 			Verifier:        verifier{},
-			Resolver:        resolver{},
 			UserDetails:     userDetails{},
 			BookDetails:     details{},
 			CreateBook:      creator{&req},
@@ -404,7 +369,6 @@ func TestCORS(t *testing.T) {
 	var query bd.BookQuery
 	e := newTestServer(t, testDependencies{
 		Verifier:       verifier{},
-		Resolver:       resolver{},
 		AllowedOrigins: []string{"http://localhost:3000", "https://app.example.com"},
 		BookList:       list{query: &query},
 	})
@@ -467,7 +431,7 @@ func TestCORSDisabledWhenNoOriginsConfigured(t *testing.T) {
 	var query bd.BookQuery
 	e := newTestServer(
 		t,
-		testDependencies{Verifier: verifier{}, Resolver: resolver{}, BookList: list{query: &query}},
+		testDependencies{Verifier: verifier{}, BookList: list{query: &query}},
 	)
 	req := httptest.NewRequest(http.MethodGet, "/books", nil)
 	req.Header.Set(echo.HeaderOrigin, "http://localhost:3000")

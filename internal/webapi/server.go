@@ -2,9 +2,7 @@ package webapi
 
 import (
 	"fmt"
-	us "go-ddd-book-manager/internal/application/user/service"
 	"go-ddd-book-manager/internal/config"
-	"go-ddd-book-manager/internal/webapi/auth"
 	"go-ddd-book-manager/internal/webapi/book"
 	"go-ddd-book-manager/internal/webapi/handler"
 	"go-ddd-book-manager/internal/webapi/telemetry"
@@ -20,11 +18,6 @@ import (
 // @securityDefinitions.bearerauth BearerAuth
 
 func New(i do.Injector) (*echo.Echo, error) {
-	verifier := do.MustInvoke[auth.TokenVerifier](i)
-	actorResolver := do.MustInvoke[us.ResolveActor](i)
-	userHandler := do.MustInvoke[*user.Handler](i)
-	bookHandler := do.MustInvoke[*book.Handler](i)
-
 	e := echo.New()
 	e.HTTPErrorHandler = handler.ErrorHandler
 	e.Use(
@@ -46,8 +39,8 @@ func New(i do.Injector) (*echo.Echo, error) {
 		e.Use(cors)
 	}
 
-	user.RegisterRoutes(e, verifier, actorResolver, userHandler)
-	book.RegisterRoutes(e, verifier, actorResolver, bookHandler)
+	do.MustInvoke[*user.Handler](i).RegisterRoutes(e)
+	do.MustInvoke[*book.Handler](i).RegisterRoutes(e)
 
 	return e, nil
 }

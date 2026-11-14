@@ -11,16 +11,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"uuid"
 
 	"github.com/samber/do/v2"
-	us "go-ddd-book-manager/internal/application/user/service"
+	"go-ddd-book-manager/internal/application"
 	"go-ddd-book-manager/internal/config"
 	dc "go-ddd-book-manager/internal/domain/common"
+	"go-ddd-book-manager/internal/infra"
 	"go-ddd-book-manager/internal/webapi"
 	"go-ddd-book-manager/internal/webapi/auth"
-	"go-ddd-book-manager/internal/webapi/book"
-	"go-ddd-book-manager/internal/webapi/user"
 
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/require"
@@ -46,11 +44,14 @@ func TestRequestTelemetry(t *testing.T) {
 	defer func() { require.NoError(t, provider.Shutdown(context.Background())) }()
 	i := do.New()
 	defer i.Shutdown()
-	do.ProvideValue(i, config.Config{})
-	do.ProvideValue[auth.TokenVerifier](i, rejectingVerifier{})
-	do.ProvideValue[us.ResolveActor](i, unusedResolver{})
-	do.ProvideValue(i, &user.Handler{})
-	do.ProvideValue(i, &book.Handler{})
+	do.ProvideValue(
+		i,
+		config.Config{DatabaseURL: "postgres://unused:unused@localhost/unused?sslmode=disable"},
+	)
+	infra.Inject(i)
+	application.Inject(i)
+	webapi.Inject(i)
+	do.OverrideValue[auth.TokenVerifier](i, rejectingVerifier{})
 	e, err := webapi.New(i)
 	require.NoError(t, err)
 	e.GET("/telemetry/ok", func(c *echo.Context) error {
@@ -163,10 +164,4 @@ type rejectingVerifier struct{}
 
 func (rejectingVerifier) Verify(context.Context, string) (auth.Identity, error) {
 	return auth.Identity{}, auth.ErrUnauthorized
-}
-
-type unusedResolver struct{}
-
-func (unusedResolver) Execute(context.Context, uuid.UUID) (dc.Actor, error) {
-	panic("unexpected actor resolution")
 }

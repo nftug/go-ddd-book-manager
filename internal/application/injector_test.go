@@ -8,7 +8,6 @@ import (
 	bq "go-ddd-book-manager/internal/application/book/query"
 	uc "go-ddd-book-manager/internal/application/user/command"
 	uq "go-ddd-book-manager/internal/application/user/query"
-	us "go-ddd-book-manager/internal/application/user/service"
 	"go-ddd-book-manager/internal/config"
 	"go-ddd-book-manager/internal/infra"
 	"testing"
@@ -32,7 +31,6 @@ func TestInjection(t *testing.T) {
 	require.NotNil(t, do.MustInvoke[bq.GetBookList](i))
 	require.NotNil(t, do.MustInvoke[bq.GetBookDetails](i))
 	require.NotNil(t, do.MustInvoke[bq.GetCheckoutHistory](i))
-	require.NotNil(t, do.MustInvoke[us.ResolveActor](i))
 	require.NotNil(t, do.MustInvoke[uc.SyncUser](i))
 	require.NotNil(t, do.MustInvoke[uq.GetUserDetails](i))
 }

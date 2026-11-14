@@ -3,6 +3,7 @@ package webapi
 import (
 	"go-ddd-book-manager/internal/webapi/auth"
 	"go-ddd-book-manager/internal/webapi/book"
+	"go-ddd-book-manager/internal/webapi/handler"
 	"go-ddd-book-manager/internal/webapi/user"
 
 	"github.com/samber/do/v2"
@@ -10,6 +11,7 @@ import (
 
 func Inject(i do.Injector) do.Injector {
 	do.Provide(i, auth.NewVerifier)
+	do.Provide(i, handler.NewExecutor)
 	do.Provide(i, book.NewHandler)
 	do.Provide(i, user.NewHandler)
 	do.Provide(i, New)

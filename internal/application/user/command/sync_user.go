@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"errors"
 	dto "go-ddd-book-manager/internal/application/user/dto"
 	dc "go-ddd-book-manager/internal/domain/common"
 	du "go-ddd-book-manager/internal/domain/user"
@@ -10,10 +11,7 @@ import (
 )
 
 type SyncUser interface {
-	Execute(
-		ctx context.Context,
-		req dto.SyncUserRequest,
-	) (dto.UserResponse, error)
+	Execute(ctx context.Context, req dto.SyncUserRequest) (dc.Actor, error)
 }
 
 type syncUser struct {
@@ -30,35 +28,61 @@ func NewSyncUser(i do.Injector) (SyncUser, error) {
 	}, nil
 }
 
-func (s *syncUser) Execute(
-	ctx context.Context,
-	req dto.SyncUserRequest,
-) (dto.UserResponse, error) {
+func (s *syncUser) Execute(ctx context.Context, req dto.SyncUserRequest) (dc.Actor, error) {
 	user, err := s.repo.FindByID(ctx, req.ID)
 	if err != nil {
-		return dto.UserResponse{}, err
+		return dc.Actor{}, err
 	}
 	dctx := dc.NewDomainContext(dc.NewSystemActor(), s.ids, s.clock)
 
 	if user == nil {
-		u, err := du.New(dctx, req.ID, req.Name, req.Email, req.Role)
-		if err != nil {
-			return dto.UserResponse{}, err
-		}
-		if err = s.repo.Create(ctx, u); err != nil {
-			return dto.UserResponse{}, err
-		}
-		return dto.FromDomain(u), nil
+		return s.create(ctx, req, dctx)
 	}
+	return s.update(ctx, user, req, dctx)
+}
 
+func (s *syncUser) create(
+	ctx context.Context,
+	req dto.SyncUserRequest,
+	dctx dc.DomainContext,
+) (dc.Actor, error) {
+	u, err := du.New(dctx, req.ID, req.Name, req.Email, req.Role)
+	if err != nil {
+		return dc.Actor{}, err
+	}
+	if err = s.repo.Create(ctx, u); err != nil {
+		if !errors.Is(err, dc.ErrConflict) {
+			return dc.Actor{}, err
+		}
+
+		createErr := err
+		// Another request may have created this user after the initial lookup.
+		user, findErr := s.repo.FindByID(ctx, req.ID)
+		if findErr != nil {
+			return dc.Actor{}, findErr
+		}
+		if user == nil {
+			return dc.Actor{}, createErr
+		}
+		return s.update(ctx, user, req, dctx)
+	}
+	return dc.NewActor(u.ID(), u.Name(), u.Role()), nil
+}
+
+func (s *syncUser) update(
+	ctx context.Context,
+	user *du.User,
+	req dto.SyncUserRequest,
+	dctx dc.DomainContext,
+) (dc.Actor, error) {
 	changed, err := user.Sync(dctx, req.Name, req.Email, req.Role)
 	if err != nil {
-		return dto.UserResponse{}, err
+		return dc.Actor{}, err
 	}
 	if changed {
 		if err = s.repo.Update(ctx, *user); err != nil {
-			return dto.UserResponse{}, err
+			return dc.Actor{}, err
 		}
 	}
-	return dto.FromDomain(*user), nil
+	return dc.NewActor(user.ID(), user.Name(), user.Role()), nil
 }

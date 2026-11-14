@@ -2,13 +2,13 @@ package book
 
 import (
 	"context"
-	"net/http"
 
 	bc "go-ddd-book-manager/internal/application/book/command"
 	bd "go-ddd-book-manager/internal/application/book/dto"
 	bq "go-ddd-book-manager/internal/application/book/query"
 	ac "go-ddd-book-manager/internal/application/common"
 	dc "go-ddd-book-manager/internal/domain/common"
+	"go-ddd-book-manager/internal/webapi/auth"
 	"go-ddd-book-manager/internal/webapi/bind"
 	"go-ddd-book-manager/internal/webapi/handler"
 
@@ -17,6 +17,8 @@ import (
 )
 
 type Handler struct {
+	verifier          auth.TokenVerifier
+	executor          *handler.Executor
 	listBooks         bq.GetBookList
 	bookDetails       bq.GetBookDetails
 	createBook        bc.CreateBook
@@ -30,6 +32,8 @@ type Handler struct {
 
 func NewHandler(i do.Injector) (*Handler, error) {
 	return &Handler{
+		verifier:          do.MustInvoke[auth.TokenVerifier](i),
+		executor:          do.MustInvoke[*handler.Executor](i),
 		listBooks:         do.MustInvoke[bq.GetBookList](i),
 		bookDetails:       do.MustInvoke[bq.GetBookDetails](i),
 		createBook:        do.MustInvoke[bc.CreateBook](i),
@@ -40,6 +44,19 @@ func NewHandler(i do.Injector) (*Handler, error) {
 		returnBookUseCase: do.MustInvoke[bc.ReturnBook](i),
 		checkoutHistory:   do.MustInvoke[bq.GetCheckoutHistory](i),
 	}, nil
+}
+
+func (h *Handler) RegisterRoutes(e *echo.Echo) {
+	group := e.Group("/books", auth.RequireIdentity(h.verifier))
+	group.GET("", h.list)
+	group.POST("", h.create)
+	group.GET("/:book_id", h.details)
+	group.PUT("/:book_id", h.update)
+	group.DELETE("/:book_id", h.delete)
+	group.PUT("/:book_id/owner", h.changeOwner)
+	group.POST("/:book_id/checkouts", h.checkout)
+	group.POST("/:book_id/return", h.returnBook)
+	group.GET("/:book_id/checkouts", h.history)
 }
 
 // list godoc
@@ -60,17 +77,13 @@ func NewHandler(i do.Injector) (*Handler, error) {
 // @Security BearerAuth
 // @Router /books [get]
 func (h *Handler) list(c *echo.Context) error {
-	return handler.JSON(
-		c,
-		http.StatusOK,
-		func(ctx context.Context, actor dc.Actor) (bd.BookPage, error) {
-			q, err := bind.QueryParams[bd.BookQuery](c)
-			if err != nil {
-				return bd.BookPage{}, err
-			}
-			return h.listBooks.Execute(ctx, actor, q)
-		},
-	)
+	return h.executor.OK(c, func(ctx context.Context, actor dc.Actor) (any, error) {
+		q, err := bind.QueryParams[bd.BookQuery](c)
+		if err != nil {
+			return bd.BookPage{}, err
+		}
+		return h.listBooks.Execute(ctx, actor, q)
+	})
 }
 
 // create godoc
@@ -90,17 +103,13 @@ func (h *Handler) list(c *echo.Context) error {
 // @Security BearerAuth
 // @Router /books [post]
 func (h *Handler) create(c *echo.Context) error {
-	return handler.JSON(
-		c,
-		http.StatusCreated,
-		func(ctx context.Context, actor dc.Actor) (ac.CreatedResponse, error) {
-			req, err := bind.Body[bd.BookRequest](c)
-			if err != nil {
-				return ac.CreatedResponse{}, err
-			}
-			return h.createBook.Execute(ctx, actor, req)
-		},
-	)
+	return h.executor.Created(c, func(ctx context.Context, actor dc.Actor) (any, error) {
+		req, err := bind.Body[bd.BookRequest](c)
+		if err != nil {
+			return ac.CreatedResponse{}, err
+		}
+		return h.createBook.Execute(ctx, actor, req)
+	})
 }
 
 // details godoc
@@ -118,17 +127,13 @@ func (h *Handler) create(c *echo.Context) error {
 // @Security BearerAuth
 // @Router /books/{book_id} [get]
 func (h *Handler) details(c *echo.Context) error {
-	return handler.JSON(
-		c,
-		http.StatusOK,
-		func(ctx context.Context, actor dc.Actor) (bd.BookResponse, error) {
-			id, err := bind.PathParams[bd.BookIdentity](c)
-			if err != nil {
-				return bd.BookResponse{}, err
-			}
-			return h.bookDetails.Execute(ctx, actor, id)
-		},
-	)
+	return h.executor.OK(c, func(ctx context.Context, actor dc.Actor) (any, error) {
+		id, err := bind.PathParams[bd.BookIdentity](c)
+		if err != nil {
+			return bd.BookResponse{}, err
+		}
+		return h.bookDetails.Execute(ctx, actor, id)
+	})
 }
 
 // update godoc
@@ -151,7 +156,7 @@ func (h *Handler) details(c *echo.Context) error {
 // @Security BearerAuth
 // @Router /books/{book_id} [put]
 func (h *Handler) update(c *echo.Context) error {
-	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
+	return h.executor.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
 		if err != nil {
 			return err
@@ -181,7 +186,7 @@ func (h *Handler) update(c *echo.Context) error {
 // @Security BearerAuth
 // @Router /books/{book_id} [delete]
 func (h *Handler) delete(c *echo.Context) error {
-	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
+	return h.executor.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
 		if err != nil {
 			return err
@@ -210,7 +215,7 @@ func (h *Handler) delete(c *echo.Context) error {
 // @Security BearerAuth
 // @Router /books/{book_id}/owner [put]
 func (h *Handler) changeOwner(c *echo.Context) error {
-	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
+	return h.executor.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
 		if err != nil {
 			return err
@@ -239,7 +244,7 @@ func (h *Handler) changeOwner(c *echo.Context) error {
 // @Security BearerAuth
 // @Router /books/{book_id}/checkouts [post]
 func (h *Handler) checkout(c *echo.Context) error {
-	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
+	return h.executor.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
 		if err != nil {
 			return err
@@ -265,7 +270,7 @@ func (h *Handler) checkout(c *echo.Context) error {
 // @Security BearerAuth
 // @Router /books/{book_id}/return [post]
 func (h *Handler) returnBook(c *echo.Context) error {
-	return handler.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
+	return h.executor.NoContent(c, func(ctx context.Context, actor dc.Actor) error {
 		id, err := bind.PathParams[bd.BookIdentity](c)
 		if err != nil {
 			return err
@@ -292,19 +297,15 @@ func (h *Handler) returnBook(c *echo.Context) error {
 // @Security BearerAuth
 // @Router /books/{book_id}/checkouts [get]
 func (h *Handler) history(c *echo.Context) error {
-	return handler.JSON(
-		c,
-		http.StatusOK,
-		func(ctx context.Context, actor dc.Actor) (bd.CheckoutPage, error) {
-			id, err := bind.PathParams[bd.BookIdentity](c)
-			if err != nil {
-				return bd.CheckoutPage{}, err
-			}
-			p, err := bind.QueryParams[ac.Pagination](c)
-			if err != nil {
-				return bd.CheckoutPage{}, err
-			}
-			return h.checkoutHistory.Execute(ctx, actor, id, p)
-		},
-	)
+	return h.executor.OK(c, func(ctx context.Context, actor dc.Actor) (any, error) {
+		id, err := bind.PathParams[bd.BookIdentity](c)
+		if err != nil {
+			return bd.CheckoutPage{}, err
+		}
+		p, err := bind.QueryParams[ac.Pagination](c)
+		if err != nil {
+			return bd.CheckoutPage{}, err
+		}
+		return h.checkoutHistory.Execute(ctx, actor, id, p)
+	})
 }

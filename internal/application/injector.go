@@ -6,12 +6,10 @@ import (
 	bq "go-ddd-book-manager/internal/application/book/query"
 	uc "go-ddd-book-manager/internal/application/user/command"
 	uq "go-ddd-book-manager/internal/application/user/query"
-	us "go-ddd-book-manager/internal/application/user/service"
 )
 
 func Inject(i do.Injector) do.Injector {
 	do.Provide(i, uc.NewSyncUser)
-	do.Provide(i, us.NewResolveActor)
 	do.Provide(i, uq.NewGetUserDetails)
 	do.Provide(i, bc.NewCreateBook)
 	do.Provide(i, bc.NewUpdateBook)

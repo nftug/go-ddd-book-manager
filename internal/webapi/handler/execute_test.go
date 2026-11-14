@@ -9,7 +9,10 @@ import (
 	"uuid"
 
 	"github.com/labstack/echo/v5"
+	"github.com/samber/do/v2"
 	"github.com/stretchr/testify/require"
+	uc "go-ddd-book-manager/internal/application/user/command"
+	ud "go-ddd-book-manager/internal/application/user/dto"
 	dc "go-ddd-book-manager/internal/domain/common"
 	"go-ddd-book-manager/internal/webapi/auth"
 	"go-ddd-book-manager/internal/webapi/handler"
@@ -21,9 +24,27 @@ func (v verifier) Verify(context.Context, string) (auth.Identity, error) {
 	return auth.Identity{ID: v.id}, nil
 }
 
-type resolver struct{ actor dc.Actor }
+type syncFake struct {
+	actor dc.Actor
+	err   error
+}
 
-func (r resolver) Execute(context.Context, uuid.UUID) (dc.Actor, error) { return r.actor, nil }
+func (s syncFake) Execute(_ context.Context, req ud.SyncUserRequest) (dc.Actor, error) {
+	if s.err != nil {
+		return dc.Actor{}, s.err
+	}
+	return s.actor, nil
+}
+
+func newExecutor(t *testing.T, syncer uc.SyncUser) *handler.Executor {
+	t.Helper()
+	i := do.New()
+	do.ProvideValue[uc.SyncUser](i, syncer)
+	t.Cleanup(func() { i.Shutdown() })
+	executor, err := handler.NewExecutor(i)
+	require.NoError(t, err)
+	return executor
+}
 
 type contextKey struct{}
 
@@ -38,21 +59,21 @@ func TestExecuteWithActor(t *testing.T) {
 	}{{"success", nil, http.StatusCreated}, {"error", expectedErr, http.StatusTeapot}} {
 		t.Run(tc.name, func(t *testing.T) {
 			e := echo.New()
+			executor := newExecutor(t, syncFake{actor: actor})
 			e.HTTPErrorHandler = func(c *echo.Context, err error) {
 				require.ErrorIs(t, err, expectedErr)
 				_ = c.NoContent(http.StatusTeapot)
 			}
 			e.GET("/", func(c *echo.Context) error {
-				return handler.JSON(
+				return executor.Created(
 					c,
-					http.StatusCreated,
-					func(ctx context.Context, got dc.Actor) (string, error) {
+					func(ctx context.Context, got dc.Actor) (any, error) {
 						require.Equal(t, actor, got)
 						require.Equal(t, "value", ctx.Value(contextKey{}))
 						return "result", tc.resultError
 					},
 				)
-			}, auth.RequireUser(verifier{id}, resolver{actor}))
+			}, auth.RequireIdentity(verifier{id}))
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			req.Header.Set("Authorization", "Bearer valid")
 			req = req.WithContext(context.WithValue(req.Context(), contextKey{}, "value"))
@@ -68,31 +89,41 @@ func TestExecuteWithActor(t *testing.T) {
 
 func TestNoContentAndMissingActor(t *testing.T) {
 	e := echo.New()
+	executor := newExecutor(t, syncFake{})
 	c := e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), httptest.NewRecorder())
 	called := false
-	err := handler.NoContent(c, func(context.Context, dc.Actor) error { called = true; return nil })
+	err := executor.NoContent(
+		c,
+		func(context.Context, dc.Actor) error { called = true; return nil },
+	)
 	require.Error(t, err)
 	require.False(t, called)
-	errResult := handler.JSON(
+	errResult := executor.OK(
 		c,
-		http.StatusOK,
-		func(context.Context, dc.Actor) (string, error) { called = true; return "", nil },
+		func(context.Context, dc.Actor) (any, error) { called = true; return "", nil },
 	)
 	require.Error(t, errResult)
 	require.False(t, called)
 	id := uuid.MustParse("00000000-0000-4000-8000-000000000001")
 	actor := dc.NewActor(id, "User", dc.UserRole)
 	expected := errors.New("failed")
+	executor = newExecutor(t, syncFake{actor: actor})
 	e.POST("/", func(c *echo.Context) error {
-		return handler.NoContent(c, func(ctx context.Context, got dc.Actor) error {
-			require.Equal(t, actor, got)
-			require.Equal(t, "value", ctx.Value(contextKey{}))
-			return nil
-		})
-	}, auth.RequireUser(verifier{id}, resolver{actor}))
+		return executor.NoContent(
+			c,
+			func(ctx context.Context, got dc.Actor) error {
+				require.Equal(t, actor, got)
+				require.Equal(t, "value", ctx.Value(contextKey{}))
+				return nil
+			},
+		)
+	}, auth.RequireIdentity(verifier{id}))
 	e.POST("/error", func(c *echo.Context) error {
-		return handler.NoContent(c, func(context.Context, dc.Actor) error { return expected })
-	}, auth.RequireUser(verifier{id}, resolver{actor}))
+		return executor.NoContent(
+			c,
+			func(context.Context, dc.Actor) error { return expected },
+		)
+	}, auth.RequireIdentity(verifier{id}))
 	for _, tc := range []struct {
 		path   string
 		status int
@@ -109,50 +140,19 @@ func TestNoContentAndMissingActor(t *testing.T) {
 	}
 }
 
-func TestIdentityJSON(t *testing.T) {
+func TestOKReturnsJSON(t *testing.T) {
 	id := uuid.MustParse("00000000-0000-4000-8000-000000000001")
-	expectedErr := errors.New("sync failed")
-	for _, tc := range []struct {
-		name   string
-		err    error
-		status int
-	}{{"success", nil, http.StatusOK}, {"error", expectedErr, http.StatusTeapot}} {
-		t.Run(tc.name, func(t *testing.T) {
-			e := echo.New()
-			e.HTTPErrorHandler = func(c *echo.Context, err error) {
-				require.ErrorIs(t, err, expectedErr)
-				_ = c.NoContent(http.StatusTeapot)
-			}
-			e.POST("/", func(c *echo.Context) error {
-				return handler.IdentityJSON(
-					c,
-					http.StatusOK,
-					func(ctx context.Context, identity auth.Identity) (string, error) {
-						require.Equal(t, id, identity.ID)
-						require.Equal(t, "value", ctx.Value(contextKey{}))
-						return "synced", tc.err
-					},
-				)
-			}, auth.RequireIdentity(verifier{id}))
-			req := httptest.NewRequest(http.MethodPost, "/", nil)
-			req.Header.Set("Authorization", "Bearer valid")
-			req = req.WithContext(context.WithValue(req.Context(), contextKey{}, "value"))
-			w := httptest.NewRecorder()
-			e.ServeHTTP(w, req)
-			require.Equal(t, tc.status, w.Code)
-			if tc.err == nil {
-				require.JSONEq(t, `"synced"`, w.Body.String())
-			}
+	executor := newExecutor(t, syncFake{actor: dc.NewActor(id, "User", dc.UserRole)})
+	e := echo.New()
+	e.GET("/", func(c *echo.Context) error {
+		return executor.OK(c, func(_ context.Context, actor dc.Actor) (any, error) {
+			return map[string]string{"id": actor.ID().String()}, nil
 		})
-	}
-	c := echo.New().
-		NewContext(httptest.NewRequest(http.MethodPost, "/", nil), httptest.NewRecorder())
-	called := false
-	err := handler.IdentityJSON(
-		c,
-		http.StatusOK,
-		func(context.Context, auth.Identity) (string, error) { called = true; return "", nil },
-	)
-	require.Error(t, err)
-	require.False(t, called)
+	}, auth.RequireIdentity(verifier{id}))
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer valid")
+	w := httptest.NewRecorder()
+	e.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.JSONEq(t, `{"id":"`+id.String()+`"}`, w.Body.String())
 }

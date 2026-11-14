@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go-ddd-book-manager/internal/application/user/command"
 	dto "go-ddd-book-manager/internal/application/user/dto"
-	"go-ddd-book-manager/internal/application/user/service"
 	"go-ddd-book-manager/internal/common/option"
 	dc "go-ddd-book-manager/internal/domain/common"
 	du "go-ddd-book-manager/internal/domain/user"
@@ -72,16 +71,55 @@ func TestSyncUser(t *testing.T) {
 			Once()
 		got, err := newUserCommandService(t, repo, command.NewSyncUser).Execute(ctx, request)
 		require.NoError(t, err)
-		require.Equal(t, id, got.ID)
+		require.Equal(t, id, got.ID())
+		repo.AssertExpectations(t)
+	})
+	t.Run("concurrent creation is reloaded and synchronized", func(t *testing.T) {
+		repo := &userRepositoryMock{}
+		user := existingUser(t, id)
+		changed := request
+		changed.Name = "New Name"
+		changed.Role = dc.AdminRole
+		mock.InOrder(
+			repo.On("FindByID", ctx, id).Return(nil, nil).Once(),
+			repo.On("Create", ctx, mock.Anything).Return(dc.ErrConflict).Once(),
+			repo.On("FindByID", ctx, id).Return(&user, nil).Once(),
+			repo.On("Update", ctx, mock.MatchedBy(func(u du.User) bool {
+				return u.Name() == changed.Name && u.Role() == changed.Role
+			})).Return(nil).Once(),
+		)
+		actor, err := newUserCommandService(t, repo, command.NewSyncUser).Execute(ctx, changed)
+		require.NoError(t, err)
+		require.Equal(t, dc.NewActor(id, changed.Name, changed.Role), actor)
+		repo.AssertExpectations(t)
+	})
+	t.Run("creation conflict without a matching user remains a conflict", func(t *testing.T) {
+		repo := &userRepositoryMock{}
+		mock.InOrder(
+			repo.On("FindByID", ctx, id).Return(nil, nil).Once(),
+			repo.On("Create", ctx, mock.Anything).Return(dc.ErrConflict).Once(),
+			repo.On("FindByID", ctx, id).Return(nil, nil).Once(),
+		)
+		_, err := newUserCommandService(t, repo, command.NewSyncUser).Execute(ctx, request)
+		require.ErrorIs(t, err, dc.ErrConflict)
+		repo.AssertExpectations(t)
+	})
+	t.Run("creation errors other than conflicts are preserved", func(t *testing.T) {
+		repo := &userRepositoryMock{}
+		failure := errors.New("create failed")
+		repo.On("FindByID", ctx, id).Return(nil, nil).Once()
+		repo.On("Create", ctx, mock.Anything).Return(failure).Once()
+		_, err := newUserCommandService(t, repo, command.NewSyncUser).Execute(ctx, request)
+		require.ErrorIs(t, err, failure)
 		repo.AssertExpectations(t)
 	})
 	t.Run("unchanged user is not saved again", func(t *testing.T) {
 		repo := &userRepositoryMock{}
 		user := existingUser(t, id)
 		repo.On("FindByID", ctx, id).Return(&user, nil).Once()
-		got, err := newUserCommandService(t, repo, command.NewSyncUser).Execute(ctx, request)
+		_, err := newUserCommandService(t, repo, command.NewSyncUser).Execute(ctx, request)
 		require.NoError(t, err)
-		require.Nil(t, got.Audit.Updated)
+		require.True(t, user.Audit().Updated().IsNone())
 		repo.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
 		repo.AssertExpectations(t)
 	})
@@ -96,7 +134,7 @@ func TestSyncUser(t *testing.T) {
 			Once()
 		got, err := newUserCommandService(t, repo, command.NewSyncUser).Execute(ctx, changed)
 		require.NoError(t, err)
-		require.Equal(t, changed.Email, got.Email)
+		require.Equal(t, id, got.ID())
 		repo.AssertExpectations(t)
 	})
 	t.Run("repository errors are preserved", func(t *testing.T) {
@@ -108,32 +146,6 @@ func TestSyncUser(t *testing.T) {
 		repo.AssertExpectations(t)
 	})
 }
-
-func TestResolveActor(t *testing.T) {
-	ctx := context.Background()
-	id := uuid.NewV7()
-	t.Run("missing user is not found", func(t *testing.T) {
-		repo := &userRepositoryMock{}
-		repo.On("FindByID", ctx, id).Return(nil, nil).Once()
-		_, err := newUserCommandService(t, repo, service.NewResolveActor).Execute(ctx, id)
-		require.ErrorIs(t, err, dc.ErrNotFound)
-		repo.AssertExpectations(t)
-	})
-	t.Run("existing user becomes actor without being synchronized", func(t *testing.T) {
-		repo := &userRepositoryMock{}
-		repo.On("FindByID", ctx, id).
-			Return(userPtr(existingUser(t, id)), nil).
-			Once()
-		actor, err := newUserCommandService(t, repo, service.NewResolveActor).Execute(ctx, id)
-		require.NoError(t, err)
-		require.Equal(t, id, actor.ID())
-		repo.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
-		repo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
-		repo.AssertExpectations(t)
-	})
-}
-
-func userPtr(user du.User) *du.User { return &user }
 
 func newUserCommandService[T any](
 	t *testing.T,
