@@ -6,6 +6,7 @@ import (
 	dto "go-ddd-book-manager/internal/application/user/dto"
 	dc "go-ddd-book-manager/internal/domain/common"
 	du "go-ddd-book-manager/internal/domain/user"
+	"uuid"
 
 	"github.com/samber/do/v2"
 )
@@ -33,8 +34,8 @@ func (s *syncUser) Execute(ctx context.Context, req dto.SyncUserRequest) (dc.Act
 	if err != nil {
 		return dc.Actor{}, err
 	}
-	dctx := dc.NewDomainContext(dc.NewSystemActor(), s.ids, s.clock)
 
+	dctx := dc.NewDomainContext(dc.NewSystemActor(), s.ids, s.clock)
 	if user == nil {
 		return s.create(ctx, req, dctx)
 	}
@@ -51,18 +52,10 @@ func (s *syncUser) create(
 		return dc.Actor{}, err
 	}
 	if err = s.repo.Create(ctx, u); err != nil {
-		if !errors.Is(err, dc.ErrConflict) {
-			return dc.Actor{}, err
-		}
-
-		createErr := err
 		// Another request may have created this user after the initial lookup.
-		user, findErr := s.repo.FindByID(ctx, req.ID)
-		if findErr != nil {
-			return dc.Actor{}, findErr
-		}
-		if user == nil {
-			return dc.Actor{}, createErr
+		user, err := s.findUserAfterConflict(ctx, req.ID, err)
+		if err != nil {
+			return dc.Actor{}, err
 		}
 		return s.update(ctx, user, req, dctx)
 	}
@@ -81,8 +74,40 @@ func (s *syncUser) update(
 	}
 	if changed {
 		if err = s.repo.Update(ctx, *user); err != nil {
-			return dc.Actor{}, err
+			user, err = s.findUserAfterConflict(ctx, req.ID, err)
+			if err != nil {
+				return dc.Actor{}, err
+			}
+
+			changed, err = user.Sync(dctx, req.Name, req.Email, req.Role)
+			if err != nil {
+				return dc.Actor{}, err
+			}
+			if changed {
+				if err = s.repo.Update(ctx, *user); err != nil {
+					return dc.Actor{}, err
+				}
+			}
 		}
 	}
 	return dc.NewActor(user.ID(), user.Name(), user.Role()), nil
+}
+
+func (s *syncUser) findUserAfterConflict(
+	ctx context.Context,
+	id uuid.UUID,
+	conflictErr error,
+) (*du.User, error) {
+	if !errors.Is(conflictErr, dc.ErrConflict) {
+		return nil, conflictErr
+	}
+
+	user, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, conflictErr
+	}
+	return user, nil
 }

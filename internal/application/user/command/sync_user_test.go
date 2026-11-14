@@ -137,6 +137,96 @@ func TestSyncUser(t *testing.T) {
 		require.Equal(t, id, got.ID())
 		repo.AssertExpectations(t)
 	})
+	t.Run(
+		"update conflict succeeds when the reloaded user is already synchronized",
+		func(t *testing.T) {
+			repo := &userRepositoryMock{}
+			stale := existingUser(t, id)
+			synchronized := existingUser(t, id)
+			changed := request
+			changed.Name = "New Name"
+			mock.InOrder(
+				repo.On("FindByID", ctx, id).Return(&stale, nil).Once(),
+				repo.On("Update", ctx, mock.Anything).Return(dc.ErrConflict).Once(),
+				repo.On("FindByID", ctx, id).Return(&synchronized, nil).Once(),
+			)
+			// The reloaded User must already reflect the requested profile.
+			syncProfile(t, &synchronized, changed)
+			actor, err := newUserCommandService(t, repo, command.NewSyncUser).Execute(ctx, changed)
+			require.NoError(t, err)
+			require.Equal(t, dc.NewActor(id, changed.Name, changed.Role), actor)
+			// The initial update conflicts; no further update is needed after reload.
+			repo.AssertNumberOfCalls(t, "Update", 1)
+			repo.AssertExpectations(t)
+		},
+	)
+	t.Run("update conflict resynchronizes and retries update once", func(t *testing.T) {
+		repo := &userRepositoryMock{}
+		stale := existingUser(t, id)
+		reloaded := existingUser(t, id)
+		changed := request
+		changed.Name = "New Name"
+		mock.InOrder(
+			repo.On("FindByID", ctx, id).Return(&stale, nil).Once(),
+			repo.On("Update", ctx, mock.Anything).Return(dc.ErrConflict).Once(),
+			repo.On("FindByID", ctx, id).Return(&reloaded, nil).Once(),
+			repo.On("Update", ctx, mock.MatchedBy(func(u du.User) bool { return u.Name() == changed.Name })).
+				Return(nil).
+				Once(),
+		)
+		actor, err := newUserCommandService(t, repo, command.NewSyncUser).Execute(ctx, changed)
+		require.NoError(t, err)
+		require.Equal(t, dc.NewActor(id, changed.Name, changed.Role), actor)
+		repo.AssertNumberOfCalls(t, "Update", 2)
+		repo.AssertExpectations(t)
+	})
+	t.Run("update conflict returns reload error", func(t *testing.T) {
+		repo := &userRepositoryMock{}
+		stale := existingUser(t, id)
+		failure := errors.New("reload failed")
+		mock.InOrder(
+			repo.On("FindByID", ctx, id).Return(&stale, nil).Once(),
+			repo.On("Update", ctx, mock.Anything).Return(dc.ErrConflict).Once(),
+			repo.On("FindByID", ctx, id).Return(nil, failure).Once(),
+		)
+		_, err := newUserCommandService(
+			t,
+			repo,
+			command.NewSyncUser,
+		).Execute(ctx, dto.SyncUserRequest{ID: id, Name: "New Name", Email: request.Email, Role: request.Role})
+		require.ErrorIs(t, err, failure)
+		repo.AssertExpectations(t)
+	})
+	t.Run("update conflict without a reloaded user remains a conflict", func(t *testing.T) {
+		repo := &userRepositoryMock{}
+		stale := existingUser(t, id)
+		mock.InOrder(
+			repo.On("FindByID", ctx, id).Return(&stale, nil).Once(),
+			repo.On("Update", ctx, mock.Anything).Return(dc.ErrConflict).Once(),
+			repo.On("FindByID", ctx, id).Return(nil, nil).Once(),
+		)
+		changed := request
+		changed.Name = "New Name"
+		_, err := newUserCommandService(t, repo, command.NewSyncUser).Execute(ctx, changed)
+		require.ErrorIs(t, err, dc.ErrConflict)
+		repo.AssertExpectations(t)
+	})
+	t.Run("second update conflict is returned", func(t *testing.T) {
+		repo := &userRepositoryMock{}
+		stale := existingUser(t, id)
+		reloaded := existingUser(t, id)
+		changed := request
+		changed.Name = "New Name"
+		mock.InOrder(
+			repo.On("FindByID", ctx, id).Return(&stale, nil).Once(),
+			repo.On("Update", ctx, mock.Anything).Return(dc.ErrConflict).Once(),
+			repo.On("FindByID", ctx, id).Return(&reloaded, nil).Once(),
+			repo.On("Update", ctx, mock.Anything).Return(dc.ErrConflict).Once(),
+		)
+		_, err := newUserCommandService(t, repo, command.NewSyncUser).Execute(ctx, changed)
+		require.ErrorIs(t, err, dc.ErrConflict)
+		repo.AssertExpectations(t)
+	})
 	t.Run("repository errors are preserved", func(t *testing.T) {
 		failure := errors.New("storage unavailable")
 		repo := &userRepositoryMock{}
@@ -145,6 +235,17 @@ func TestSyncUser(t *testing.T) {
 		require.ErrorIs(t, err, failure)
 		repo.AssertExpectations(t)
 	})
+}
+
+func syncProfile(t *testing.T, user *du.User, req dto.SyncUserRequest) {
+	t.Helper()
+	_, err := user.Sync(
+		dc.NewDomainContext(dc.NewSystemActor(), fixedIDs{}, fixedClock{}),
+		req.Name,
+		req.Email,
+		req.Role,
+	)
+	require.NoError(t, err)
 }
 
 func newUserCommandService[T any](
