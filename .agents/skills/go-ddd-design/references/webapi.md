@@ -14,10 +14,9 @@ Domain invariantやUseCaseの処理をHandlerへ移さない。
 internal/webapi/
 ├── server.go          # Echoの構築とroute登録
 ├── injector.go        # Web APIのprovider登録
-├── error_handler.go   # HTTPエラー変換とログ
-├── auth/              # Token検証、認証middleware、Identity・Actor
+├── auth/              # Token検証、認証middleware、Identity
 ├── bind/              # 入力元別のbinding
-├── handler/           # UseCase実行とレスポンスの共通処理
+├── handler/           # User同期・UseCase実行・レスポンス・エラー処理
 ├── book/              # 書籍のrouteとHandler
 └── user/              # UserのrouteとHandler
 ```
@@ -57,7 +56,7 @@ path・query・bodyの入力元を明示してbindし、bodyでpathの識別情�
 
 Domain EntityやBun modelへ直接bindしない。
 
-`handler.JSON` と `handler.NoContent` はActorの取得、UseCaseの実行、成功レスポンスを共通化する。`handler.IdentityJSON` はIdentityを使う同期処理に使用する。Applicationの返却DTOはそのままJSONへ変換する。
+`handler.Executor` の `OK`・`Created`・`NoContent` はUser同期によるActorの生成、UseCaseの実行、成功レスポンスを共通化する。Applicationの返却DTOはそのままJSONへ変換する。
 
 ## ルーティングと成功レスポンス
 
@@ -69,7 +68,6 @@ ApplicationのIdentityは対象の識別情報を表し、`/books/:book_id`な�
 
 | Method | Path                        | UseCase            | 成功status |
 | ------ | --------------------------- | ------------------ | ---------- |
-| POST   | `/users/me`                 | SyncUser           | 200        |
 | GET    | `/users/me`                 | 自分のUser詳細取得 | 200        |
 | GET    | `/books`                    | 書籍一覧取得       | 200        |
 | GET    | `/books/:book_id`           | 書籍詳細取得       | 200        |
@@ -81,65 +79,19 @@ ApplicationのIdentityは対象の識別情報を表し、`/books/:book_id`な�
 | POST   | `/books/:book_id/return`    | 返却               | 204        |
 | GET    | `/books/:book_id/checkouts` | 貸出履歴取得       | 200        |
 
-SyncUserは新規取り込み・既存同期で共通の成功契約とし、Applicationが返す同期後の`UserResponse`を返す。書籍作成は`CreatedResponse`を返す。
+書籍作成は`CreatedResponse`を返す。`POST /users/me`は登録されていない。
 
 204ではbodyを返さない。
 
 ## 認証middleware
 
-認証は以下の2段階に分ける。
+現在の業務routeには`RequireIdentity`を適用し、Bearer Tokenを検証してIdentityをrequestの`context.Context`に保持する。
 
-- `RequireIdentity`: Bearer Tokenを検証し、検証済みIdentityをrequest内で保持する
-- `RequireUser`: 検証済みIdentityに対応するDBのUserを取得し、Actorをrequest内で保持する
+各Handlerは`handler.Executor`を呼ぶ。Executorは`IdentityFrom`でIdentityを取り出し、`SyncUser`にID・name・email・roleを渡す。Userがなければ作成し、あれば同期したうえで、返されたActorとrequestの`context.Context`をUseCaseに渡す。同期は入力のbindingより先に行われる。
 
-`RequireUser`は`RequireIdentity`の後に実行する。
+同期時のDomain ValidationErrorは`auth.ErrUnauthorized`に変換し、DB障害などは元のerrorを返す。Identityの欠落など内部不整合は500として扱う。ActorやIdentityを共有Serviceのfieldやglobal変数へ保存しない。
 
-| API              | RequireIdentity | RequireUser |
-| ---------------- | --------------- | ----------- |
-| `POST /users/me` | 必須            | 適用しない  |
-| その他の業務API  | 必須            | 必須        |
-
-書籍一覧・詳細を含め、業務APIに匿名アクセスを許可しない。
-
-SyncUserはHTTP methodとrouteで明示的に登録する。同じ`/users/me`でもGETは登録済みUserを必要とする。
-
-同期routeは`auth.IdentityGroup`へ、その他は`auth.ActorGroup`へ登録する。
-
-RequireUserはApplicationのActor解決処理を呼び出し、Userの取得・Actorへの変換を委ねる。
-
-User不在は認証エラー（401）とし、通常の対象EntityのNotFound（404）と区別する。
-
-DB障害はUser不在と扱わず、元のerrorを保持してサーバーエラーへ渡す。
-
-Actor・Identityを共有Serviceのfieldやglobal変数へ保存しない。requestの`context.Context`内の値は`IdentityFrom`・`ActorFrom`で取得し、型不一致などの内部不整合は500として扱う。
-
-## SyncUser
-
-Userの新規取り込み・同期は`POST /users/me`からApplicationのSyncUser UseCaseを呼び出して行う。
-
-```text
-POST /users/me
-  → RequireIdentity
-  → 検証済みIdentityからSyncUser入力を作成
-  → SystemActorでUser.NewまたはUser.Sync
-  → 保存し、同期後のUserResponseDTOを返す
-
-その他の業務API
-  → RequireIdentity
-  → RequireUser
-  → DBのUserがなければ401
-  → DBのUser.Actor()でUseCaseを実行
-```
-
-通常の業務APIでUserを自動作成・同期しない。
-
-name・email・roleは検証済みclaimまたはIdPのUserInfoから取得する。クライアントのbodyで任意のUser ID・role・SystemActorを指定させない。
-
-roleはIdP固有のclaimから許可したDomain roleへ明示的に変換する。通常のUserにSystemRoleを割り当てない。
-
-SyncUserに必要なprofile情報の検証は同期処理で行い、そのDomain ValidationErrorは401に変換する。その他のAPIで不要なname・email claimまで必須にしない。
-
-通常APIのActorはDBのUserから作るため、name・email・roleの変更は次のSyncUser成功時に反映される。
+name・email・roleは検証済みclaimから取得する。クライアントのbodyで任意のUser ID・role・SystemActorを指定させない。roleはIdP固有のclaimから許可したDomain roleへ変換し、通常のUserにSystemRoleを割り当てない。
 
 ## OIDCとAccess Token検証
 
@@ -170,14 +122,13 @@ Handler・認証middlewareはerrorを返す。Application・DomainにHTTP status
 | エラー                                 | HTTP status |
 | -------------------------------------- | ----------- |
 | Tokenなし・無効・期限切れ              | 401         |
-| 有効なIdentityに対応するDBのUserが不在 | 401         |
 | Domain・UseCaseの認可失敗              | 403         |
 | 対象Bookなどの不在                     | 404         |
 | binding・parse失敗、入力validation失敗 | 400         |
 | 同時更新の競合                         | 409         |
 | 想定外のDB障害や内部不整合             | 500         |
 
-認証に必要なclaimの不正は401として扱い、通常のHTTP入力validation失敗と区別する。
+認証に必要なclaimや同期時のprofileの不正は401として扱い、通常のHTTP入力validation失敗と区別する。
 
 IdP通信・JWKS取得などの外部障害を、資格情報の不正と区別できる場合はサーバー側の障害として扱う。
 
@@ -205,11 +156,9 @@ Recoverによるpanic処理も共通のエラーハンドリングへ接続す�
 
 `httptest`とUseCase・Token検証のfakeを使い、実際のEcho routerを通して次を確認する。
 
-- 未登録Userでも有効なIdentityでPOST /users/meへ到達できること
-- SyncUser以外はTokenと登録済みUserの両方を必要とすること
-- GET /users/meはSyncUserの例外対象にならないこと
-- 通常APIでUserを自動作成・同期しないこと
-- User不在は401、DB障害は500になること
+- 業務APIが有効なTokenを必要とし、Handler実行前にSyncUserを呼ぶこと
+- 同期時のvalidation失敗は401、DB障害は500になること
+- POST /users/meが登録されていないこと
 - path・query・bodyからApplication入力への変換が正しいこと
 - 認可失敗・validation・NotFoundなどが共通のエラーハンドラを通ること
 - 401の認証header、204の空body、500の詳細非公開

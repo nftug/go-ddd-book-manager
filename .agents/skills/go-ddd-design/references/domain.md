@@ -75,7 +75,7 @@ NewISBN(...)
 NewDescription(...)
 ```
 
-生成済みValue Objectは常に有効な値を表す。
+外部入力はconstructorで検証する。Goのzero valueや検証を行わない復元関数から作られた値まで有効とは限らない。
 
 永続化データから復元するときは`RestoreX`を使用する。
 
@@ -100,7 +100,7 @@ type Book struct {
 }
 ```
 
-Value Objectが存在するなら有効な値を持つ。
+通常の生成経路では、存在するValue Objectをconstructorで検証する。
 
 Domain上のoptionalには原則としてrepository-localの`option.Option[T]`を使う。
 
@@ -140,14 +140,14 @@ func (a AuthorList) Values() []Author {
 
 `Restore`ではユーザー操作に対する認可を行わない。
 
-ただし、Domainとして存在不能な状態を黙って受け入れてはならない。
+現在のRestoreは一律にvalidationするわけではない。たとえば`RestoreTitle`や`RestoreAuthor`は保存値をそのまま復元する。一方、構造上の整合性を検査する復元関数もあるため、対象の実装とDB制約を確認する。
 
 例:
 
 - 不正なenum
 - audit情報の一部だけが存在する状態
 
-これらは復元時にもerrorにしてよい。
+これらの整合性を変更する場合は復元処理と永続化の両方を確認する。
 
 ## 6. DomainContext
 

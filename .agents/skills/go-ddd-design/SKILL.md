@@ -55,7 +55,7 @@ interfaceは利用側のpackageで定義し、小さく保つ。
 
 依存性注入には `github.com/samber/do/v2` を使用する。
 
-providerの登録は `internal/infra/injector.go` と `internal/application/injector.go` にまとめる。
+providerの登録は各層の `internal/infra/injector.go`、`internal/application/injector.go`、`internal/webapi/injector.go` にまとめる。
 
 各providerが依存を解決してServiceのfieldへ渡す。`Execute`などの業務処理中にcontainerから依存を取得しない。Domain objectにcontainerを持ち込まない。
 
@@ -68,8 +68,8 @@ func NewRepository(i do.Injector) (domain.Repository, error) {
 	return &repository{db: do.MustInvoke[*bun.DB](i)}, nil
 }
 
-func NewGetBookDetails(i do.Injector) (*GetBookDetails, error) {
-	return &GetBookDetails{q: do.MustInvoke[QueryService](i)}, nil
+func NewGetBookDetails(i do.Injector) (GetBookDetails, error) {
+	return &getBookDetails{q: do.MustInvoke[QueryService](i)}, nil
 }
 ```
 

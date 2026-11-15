@@ -2,103 +2,64 @@
 
 Go でドメイン駆動設計（DDD）を実践する書籍管理アプリケーションです。
 
+## 開発を始める
+
+Go（バージョンは `go.mod` を参照）、[Task](https://taskfile.dev/)、Docker Compose が必要です。
+
+```sh
+task run         # 開発用サービスを起動して API を実行
+task dev         # 同じ構成で変更を監視し、API を再起動
+task migrate-up  # 未適用のマイグレーションを適用
+```
+
+API は `localhost:8080`、PostgreSQL は `localhost:5432`、Keycloak は `localhost:8081` で利用できます。`task run` と `task dev` はコード生成と Docker Compose の起動も行います。`task dev` の監視中に `go:generate` の対象を変更した場合は、別途 `task generate` を実行してください。
+
+開発用の接続先は `DATABASE_URL`、`OIDC_ISSUER`、`OIDC_AUDIENCE`、`CORS_ALLOWED_ORIGINS` で上書きできます。API の待受アドレスは `HTTP_ADDR`（初期値 `:8080`）で指定します。直接起動する場合は `DATABASE_URL`、`OIDC_ISSUER`、`OIDC_AUDIENCE` が必要です。CORS は `CORS_ALLOWED_ORIGINS` にカンマ区切りで許可するオリジンを指定すると有効になります。
+
+Compose のポートや PostgreSQL の認証情報は [docker-compose.yml](docker/go-ddd-book-manager/docker-compose.yml) の環境変数で変更できます。既存の PostgreSQL ボリュームには認証情報の変更は自動反映されません。認証情報に URL エンコードが必要な文字を使う場合は、エンコード済みの `DATABASE_URL` を指定してください。
+
+## 開発用認証
+
+Keycloak の開発用 realm は `book-manager`、client ID と API audience は `book-manager-api` です。`user` と `admin` のパスワードはいずれも `password` です。これらは開発専用のアカウントです。
+
+```sh
+curl -X POST 'http://localhost:8081/realms/book-manager/protocol/openid-connect/token' \
+  -d 'client_id=book-manager-api' -d 'grant_type=password' \
+  -d 'username=user' -d 'password=password'
+```
+
+API は Keycloak の RS256 Access Token を使用し、realm role `Admin` を持つユーザーを管理者として同期します。Keycloak は既存の realm を起動時インポートで上書きしません。[realm.json](docker/go-ddd-book-manager/realm.json) の変更を反映するには、必要なデータを退避し、管理画面で realm を削除してから Keycloak を再起動してください。
+
+## 主なタスク
+
+```sh
+task fix                 # コード生成とフォーマット
+task test                # コード生成と全テスト
+task test-integration    # Docker と PostgreSQL を使う統合テスト
+task openapi             # 試作用 swagger.json を生成
+task build               # bin/app をビルド
+task migrate-down        # 最後のマイグレーショングループをロールバック
+task migrate-create -- add_example  # 空のマイグレーションを作成
+```
+
+`migrate-down` には対象 DB の `DATABASE_URL` を明示してください。統合テストは現在の Docker コンテキストを使用します。別のソケットを使う場合は `DOCKER_HOST` を設定し、`go test -tags=integration ./internal/infra/...` を直接実行してください。
+
+OpenAPI 定義はハンドラーのコメントから生成されます。コメントと実装の一致は自動では保証されません。
+
+## ログとトレース
+
+`task run` と `task dev` はログとトレースを OTLP/HTTP に送信します。[Grafana](http://localhost:3001)（ユーザー名・パスワードは `admin`）の Explore で Loki のログと Tempo のトレースを検索できます。送信先は `OTEL_EXPORTER_OTLP_ENDPOINT` で変更できます。直接起動時に送信先が未設定ならログは標準出力のみです。
+
+アクセスログとトレースにはクエリ文字列が含まれます。`access_token`、`token`、`password`、`client_secret` の値はマスクしますが、それ以外のクエリ値は記録されます。リクエスト本文と Authorization ヘッダーは記録しません。
+
 ## ディレクトリ構成
 
 ```text
-cmd/                    アプリケーションとマイグレーションのエントリーポイント
-internal/common/        共通のユーティリティ
-internal/domain/        書籍・ユーザーなどのドメインモデル
-internal/application    アプリケーション層
-internal/webapi         Web API (プレゼンテーション層)
-internal/infra/         PostgreSQL のリポジトリ、DI、マイグレーション
-docker/                 開発用 Docker Compose 設定
+cmd/                   アプリケーションとマイグレーションの入口
+internal/domain/       ドメインモデル
+internal/application/  ユースケース
+internal/webapi/       HTTP API
+internal/infra/        永続化、DI、マイグレーション
+internal/common/       共通ユーティリティ
+docker/                開発用 Docker Compose 設定
 ```
-
-## 開発環境
-
-- Go（必要なバージョンは `go.mod` を参照）
-- [Task](https://taskfile.dev/)
-- Docker と Docker Compose（開発用サービスや統合テストで使用）
-- PostgreSQL（マイグレーションやアプリケーションのデータ保存で使用）
-
-主なタスクはリポジトリルートで実行します。
-
-```sh
-task test              # コード生成とテスト
-task test-integration  # Dockertest と PostgreSQL による統合テスト
-task fix               # コード生成とフォーマット
-task openapi           # 試作用 OpenAPI JSON を生成
-task build             # bin/app をビルド
-task dev               # Air で変更を監視して Web API を再起動
-```
-
-## OpenAPI スキーマの試作
-
-`task openapi` で `swagger.json` を生成します。現在のユーザー API と書籍 API のルートを記載しています。定義はハンドラーのコメントに記述し、生成には OpenAPI 3.1 対応の swaggo v2 リリース候補版を使います。コメントと実装の一致は自動では保証されません。ポインターフィールドは必須項目として扱いません。
-
-## 開発時におけるDockerの使用
-
-`task docker-up` は開発用の PostgreSQL（localhost:5432）と Keycloak（localhost:8081）を起動します。
-
-Compose のポートや PostgreSQL のユーザー名・パスワード・DB名は `docker/go-ddd-book-manager/docker-compose.yml` の環境変数で上書きできます。初期値の認証情報は開発専用です。既存の PostgreSQL ボリュームには、初回起動後の認証情報の変更は自動反映されません。
-
-`task run` はコード生成と Docker Compose サービスの起動後に Web API を実行します。開発用の接続設定が自動的に使われ、`DATABASE_URL`、`OIDC_ISSUER`、`OIDC_AUDIENCE`、`CORS_ALLOWED_ORIGINS` を設定すると上書きできます。初期設定に対応する値は以下のとおりです。
-
-`task dev` は同じ準備と接続設定で [Air](https://github.com/air-verse/air) を起動し、Go ソースや埋め込み SQL の変更時に Web API をビルドし直して再起動します。Air の個別インストールは不要です。`go:generate` の対象を変更した場合は、別途 `task generate` を実行してください。
-
-`DATABASE_USERNAME` や `DATABASE_PASSWORD` にURL上でエンコードが必要な文字を使う場合は、エンコード済みの `DATABASE_URL` を明示してください。
-
-```sh
-export DATABASE_URL='postgres://bookmanager:bookmanager@localhost:5432/bookmanager?sslmode=disable'
-export OIDC_ISSUER='http://localhost:8081/realms/book-manager'
-export OIDC_AUDIENCE='book-manager-api'
-export CORS_ALLOWED_ORIGINS='http://localhost:3000'
-```
-
-統合テストには Docker デーモンが必要です。`task test-integration` は現在の Docker コンテキストから接続先を取得します。別のソケットを指定する場合は、`DOCKER_HOST` を設定して `go test -tags=integration ./internal/infra/...` を直接実行してください。
-
-## マイグレーション
-
-PostgreSQL を起動してから、次のタスクを実行します。`migrate-up` は `DATABASE_URL` が未設定の場合、Composeの開発用接続設定を使います。`migrate-down` には対象DBの `DATABASE_URL` を明示してください。
-
-```sh
-task migrate-up    # 未適用の SQL マイグレーションを適用
-task migrate-down  # 最後に適用したマイグレーショングループをロールバック
-```
-
-空の up/down SQL ファイルは次のコマンドで作成できます。
-
-```sh
-task migrate-create -- add_example
-```
-
-Web API の起動には `DATABASE_URL`、Keycloak の issuer を指定する `OIDC_ISSUER`、API 用 audience の `OIDC_AUDIENCE` が必要です。待受アドレスは `HTTP_ADDR`（省略時 `:8080`）で指定できます。Keycloak の RS256 Access Token を使用し、`realm_access.roles` に `Admin` があるユーザーを管理者として同期します。
-
-ブラウザーから別オリジンでアクセスする場合は、`CORS_ALLOWED_ORIGINS` に許可するオリジンをカンマ区切りで指定します（例: `https://app.example.com,https://admin.example.com`）。直接起動時に未設定なら CORS を有効にしません。`task run` の開発用デフォルトは `http://localhost:3000` です。Bearer トークンの `Authorization` と `Content-Type` ヘッダーに対応し、Cookie を使うクロスオリジン認証は許可しません。
-
-### ログとトレース
-
-`task run` は OpenTelemetry のログを標準出力と OTLP/HTTP に送信し、リクエストのトレースも送信します。Grafana は http://localhost:3001 （ユーザー名・パスワードは `admin`）で開き、Explore の Loki でログ、Tempo でトレースを検索できます。ログの Trace ID を使って対応するトレースを確認できます。`OTEL_EXPORTER_OTLP_ENDPOINT` で送信先を変更できます。直接起動時に送信先が未設定なら標準出力のみです。
-
-アクセスログとトレースにはクエリ文字列を記録します。`access_token`、`token`、`password`、`client_secret` の値はマスクしますが、それ以外のクエリ値は記録されます。リクエスト本文と Authorization ヘッダーは記録しません。この開発用構成は監査証跡の保存を目的としません。
-
-### 開発用 Keycloak
-
-Docker Compose の Keycloak は初回起動時に `docker/go-ddd-book-manager/realm.json` をインポートします。開発用の realm は `book-manager`、API の audience とトークン取得用 client ID は `book-manager-api` です。`OIDC_ISSUER` には `http://localhost:<KEYCLOAK_PORT_OUTER>/realms/book-manager`、`OIDC_AUDIENCE` には `book-manager-api` を設定してください。
-
-| ユーザー名 | パスワード | 権限                         |
-| ---------- | ---------- | ---------------------------- |
-| `user`     | `password` | 通常ユーザー                 |
-| `admin`    | `password` | 管理者（realm role `Admin`） |
-
-どちらも開発専用のアカウントです。たとえば次のコマンドでアクセストークンを取得できます。
-
-```sh
-curl -X POST "http://localhost:${KEYCLOAK_PORT_OUTER:-8081}/realms/book-manager/protocol/openid-connect/token" \
-  -d 'client_id=book-manager-api' \
-  -d 'grant_type=password' \
-  -d 'username=user' \
-  -d 'password=password'
-```
-
-Keycloak は既に存在する realm を起動時インポートで上書きしません。`realm.json` の変更を既存環境に反映するには、必要なデータを退避したうえで Keycloak の管理画面から該当 realm を削除し、Keycloak を再起動してください。

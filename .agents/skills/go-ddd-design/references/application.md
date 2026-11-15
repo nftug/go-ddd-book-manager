@@ -151,9 +151,9 @@ DTOに`canUpdate`・`canDelete`などを含める場合は、Domainと同じ認�
 
 JWTの検証やclaimのparseはPresentation・認証adapter側の責務とする。
 
-ApplicationのSyncUserは検証済みIdentity情報を受け取り、Userの投影を同期して`UserResponseDTO`を返す。
+ApplicationのSyncUserは検証済みIdentity情報を受け取り、Userの投影を同期して`common.Actor`を返す。
 
-`UserResponseDTO`は`user/dto/response.go`へ置き、必要に応じてUser詳細取得などでも共有する。
+User詳細の返却型`UserResponse`は`user/dto/response.go`に置く。
 
 ```text
 検証済みIdentity情報
@@ -161,10 +161,10 @@ ApplicationのSyncUserは検証済みIdentity情報を受け取り、Userの投�
   → 不在ならSystemActorでUser.New
   → 存在すればSystemActorでUser.Sync
   → 必要な保存
-  → 同期後のUserからUserResponseDTOを作成して返す
+  → 同期後のUserからActorを作成して返す
 ```
 
-通常の業務API向けのActor解決は同期とは別の読み取り処理とし、既存Userを取得して`User.Actor()`を返す。Userを自動作成・同期しない。
+現在は通常の業務APIごとにSyncUserを実行する。CreateまたはUpdateが競合した場合はUserを再取得して同期を一度再試行し、再取得できなければ元の競合を返す。User詳細は別のQueryServiceから`UserResponse`を取得する。
 
 name・email・roleのすべてを同期対象とし、emailだけの変更も取り込む。
 
